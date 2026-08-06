@@ -1,0 +1,46 @@
+[project]
+name = "asterisk-phone-management"
+version = "0.1.0"
+description = "A Python module to manage the Asterisk Phone system."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "questionary>=2.1.1",
+    "rich>=15.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "conventional-commits-check>=2.9.0",
+    "pre-commit>=4.6.1",
+    "ruff>=0.16.1",
+    "ty>=0.0.69",
+]
+
+[tool.ruff]
+line-length = 79
+indent-width = 4
+target-version = "py313"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+line-ending = "lf"
+
+[tool.ruff.lint]
+preview = true
+extend-select = ["A", "ANN", "ARG", "B", "C4", "D", "DOC", "E", "EM", "FBT", "G", "I", "ICN", "LOG", "N", "PERF", "PL", "PTH", "PYI", "RUF", "SIM", "TID", "UP", "W"]
+ignore = ["COM812", "ISC001"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ty.environment]
+python-version = "3.13"
+
+[tool.ty.analysis]
+strict-equality-semantics = true
+
+[tool.ty.rules]
+all = "error"

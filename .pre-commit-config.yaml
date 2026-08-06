@@ -1,0 +1,22 @@
+repos:
+- repo: https://github.com/AliYmn/conventional-commits-check
+  rev: v2.9.0
+  hooks:
+  - id: conventional-commits-check
+    stages:
+    - commit-msg
+    args:
+    - --emoji-disabled
+- repo: https://github.com/astral-sh/uv-pre-commit
+  rev: 0.12.1
+  hooks:
+  - id: uv-lock
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.16.1
+  hooks:
+  - id: ruff-check
+  - id: ruff-format
+- repo: https://github.com/astral-sh/ty-pre-commit
+  rev: v0.0.66
+  hooks:
+  - id: ty
