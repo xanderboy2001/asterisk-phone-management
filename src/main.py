@@ -158,6 +158,33 @@ def scan_asterisk_file_for_extension(
                 )
 
 
+def scan_xml_files_for_extension(
+    target_extension: str,
+) -> Iterable[ExtensionMatch]:
+    """Scan all .cnf.xml files in /var/tftpboot for a given extension.
+
+    Args:
+        target_extension: Extension to search for.
+
+    Yields:
+        ExtensionMatch: Object containing information about the match.
+    """
+    xml_files: Iterable[Path] = TFTPBOOT.glob(pattern="*.cnf.xml")
+
+    for file in xml_files:
+        with file.open(mode="r", encoding="utf-8") as current_file:
+            for line_number, line_text in enumerate(current_file, start=1):
+                if (
+                    f"<featureLabel>{target_extension}</featureLabel>"
+                    in line_text.strip()
+                ):
+                    yield ExtensionMatch(
+                        file_path=file,
+                        line_number=line_number,
+                        matched_text=line_text.strip(),
+                    )
+
+
 def main() -> None:
     """Run the main application logic."""
     parsed_args = _parse_args()
@@ -183,6 +210,16 @@ def main() -> None:
             file_path=file_path,
             target_extension=target_extension,
             match_rule=match_rule,
+        ):
+            matches_found += 1
+            log.info(
+                "[bold green]Match Found[/bold green] in %s (Line %d): %s",
+                match.file_path.name,
+                match.line_number,
+                match.matched_text,
+            )
+        for match in scan_xml_files_for_extension(
+            target_extension=target_extension
         ):
             matches_found += 1
             log.info(
