@@ -31,6 +31,8 @@ REQUIRED_FILES: Final[dict[str, Path]] = {
     "XML_TEMPLATE": TFTPBOOT / "SEP0000000.cnf.xml",
 }
 
+EXTENSION_LENGTH: Final[int] = 4
+
 
 def _parse_args(args: list[str] | None = None) -> argparse.Namespace:
     """Parse command-line arguments.
@@ -66,6 +68,21 @@ def ensure_required_paths() -> None:
         if not file.exists():
             log.error("File '%s' not found!", file)
             raise FileNotFoundError(file)
+
+
+def validate_extension(extension: str) -> bool | str:
+    """Check if given extension is valid.
+
+    Args:
+        extension: The extension to validate.
+
+    Returns:
+        True if extension is valid, otherwise an error message.
+    """
+    if len(extension) != EXTENSION_LENGTH or not extension.isdigit():
+        return "Extension must be 4 digits."
+
+    return True
 
 
 def main() -> None:
