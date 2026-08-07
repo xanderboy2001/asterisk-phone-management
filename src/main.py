@@ -2,6 +2,8 @@
 
 import argparse
 import logging
+from pathlib import Path
+from typing import Final
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -18,6 +20,16 @@ logging.basicConfig(
 )
 
 log = logging.getLogger("rich")
+
+ETC_ASTERISK: Path = Path("/etc/asterisk")
+TFTPBOOT: Path = Path("/var/lib/tftpboot")
+# Required files + paths
+REQUIRED_FILES: Final[dict[str, Path]] = {
+    "SIP_CONF": ETC_ASTERISK / "sip.conf",
+    "EXTENSIONS_CONF": ETC_ASTERISK / "extensions.conf",
+    "VOICEMAIL_CONF": ETC_ASTERISK / "voicemail.conf",
+    "XML_TEMPLATE": TFTPBOOT / "SEP0000000.cnf.xml",
+}
 
 
 def _parse_args(args: list[str] | None = None) -> argparse.Namespace:
@@ -44,6 +56,18 @@ def _parse_args(args: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
+def ensure_required_paths() -> None:
+    """Check for existence of all paths in REQUIRED_FILES.
+
+    Raises:
+        FileNotFoundError: if a file doesn't exist.
+    """
+    for file in REQUIRED_FILES.values():
+        if not file.exists():
+            log.error("File '%s' not found!", file)
+            raise FileNotFoundError(file)
+
+
 def main() -> None:
     """Run the main application logic."""
     parsed_args = _parse_args()
@@ -52,6 +76,8 @@ def main() -> None:
     if verbose:
         log.setLevel(logging.DEBUG)
         log.debug("Verbose logging enabled.")
+
+    ensure_required_paths()
 
 
 if __name__ == "__main__":
