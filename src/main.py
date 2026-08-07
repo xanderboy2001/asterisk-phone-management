@@ -22,8 +22,10 @@ logging.basicConfig(
 
 log = logging.getLogger("rich")
 
-ETC_ASTERISK: Path = Path("/etc/asterisk")
-TFTPBOOT: Path = Path("/var/lib/tftpboot")
+# ETC_ASTERISK: Path = Path("/etc/asterisk")
+ETC_ASTERISK: Path = Path(Path(__file__).parent.parent / "config/asterisk")
+# TFTPBOOT: Path = Path("/var/lib/tftpboot")
+TFTPBOOT: Path = Path(Path(__file__).parent.parent / "config/tftpboot")
 # Required files + paths
 REQUIRED_FILES: Final[dict[str, Path]] = {
     "SIP_CONF": ETC_ASTERISK / "sip.conf",
