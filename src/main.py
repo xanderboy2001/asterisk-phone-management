@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from typing import Final
 
+import questionary
 from rich.console import Console
 from rich.logging import RichHandler
 
@@ -83,6 +84,22 @@ def validate_extension(extension: str) -> bool | str:
         return "Extension must be 4 digits."
 
     return True
+
+
+def read_extension() -> str:
+    """Ask the user to provide an extension.
+
+    Returns:
+        Validated extension.
+    """
+    response = None
+    while response is None:
+        response = questionary.text(
+            message="Enter a 4-digit extension (e.g., 1234)",
+            validate=validate_extension,
+        ).ask()
+
+    return response
 
 
 def main() -> None:
