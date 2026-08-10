@@ -108,12 +108,15 @@ def _log_matches(matches: Iterable[ExtensionMatch]) -> int:
     return count
 
 
-def search_for_extension(extension: str | None) -> None:
+def search_for_extension(extension: str | None) -> bool:
     """Prompt for extension and search config files for it.
 
     Args:
         extension: The extension to search for.
             If not provided, prompts user to enter one.
+
+    Returns:
+        True if extension was found, False otherwise.
     """
     if not extension:
         extension = read_extension()
@@ -143,6 +146,9 @@ def search_for_extension(extension: str | None) -> None:
             "No references to extension %s were found in the config files.",
             extension,
         )
+        return False
+    else:
+        return True
 
 
 if __name__ == "__main__":

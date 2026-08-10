@@ -102,12 +102,15 @@ def _log_matches(matches: Iterable[MACMatch]) -> int:
     return count
 
 
-def search_for_mac_address(mac_address: str | None) -> None:
+def search_for_mac_address(mac_address: str | None) -> bool:
     """Prompt for MAC address and search config files for it.
 
     Args:
         mac_address: MAC address to search for. If None, user
             is prompted to enter one.
+
+    Returns:
+        True if MAC address was found, False otherwise.
     """
     if not mac_address:
         mac_address = read_mac_addr()
@@ -134,6 +137,9 @@ def search_for_mac_address(mac_address: str | None) -> None:
             "No reference to MAC address %s found in the config files.",
             mac_address,
         )
+        return False
+    else:
+        return True
 
 
 if __name__ == "__main__":
