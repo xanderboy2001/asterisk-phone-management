@@ -108,9 +108,15 @@ def _log_matches(matches: Iterable[ExtensionMatch]) -> int:
     return count
 
 
-def search_for_extension() -> None:
-    """Prompt for extension and search config files for it."""
-    target_extension: str = read_extension()
+def search_for_extension(extension: str | None) -> None:
+    """Prompt for extension and search config files for it.
+
+    Args:
+        extension: The extension to search for.
+            If not provided, prompts user to enter one.
+    """
+    if not extension:
+        extension = read_extension()
 
     scan_tasks: list[tuple[Path, MatchRule]] = [
         (REQUIRED_FILES["SIP_CONF"], _is_sip_match),
@@ -123,21 +129,21 @@ def search_for_extension() -> None:
         matches_found += _log_matches(
             scan_asterisk_file_for_extension(
                 file_path=file_path,
-                target_extension=target_extension,
+                target_extension=extension,
                 match_rule=match_rule,
             )
         )
 
     matches_found += _log_matches(
-        matches=scan_xml_files_for_extension(target_extension)
+        matches=scan_xml_files_for_extension(extension)
     )
 
     if matches_found == 0:
         log.warning(
             "No references to extension %s were found in the config files.",
-            target_extension,
+            extension,
         )
 
 
 if __name__ == "__main__":
-    search_for_extension()
+    search_for_extension(None)
