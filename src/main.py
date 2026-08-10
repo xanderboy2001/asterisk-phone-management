@@ -10,6 +10,8 @@ import questionary
 from rich.console import Console
 from rich.logging import RichHandler
 
+from search_for_extension import search_for_extension
+
 console = Console()
 
 
@@ -36,6 +38,15 @@ REQUIRED_FILES: Final[dict[str, Path]] = {
 }
 
 MAC_ADDRESS_LENGTH: Final[int] = 12
+
+
+MENU_OPTIONS: Final[list[questionary.Choice]] = [
+    questionary.Choice(
+        title="Search for Extension",
+        description="Search config and xml files for a given extension.",
+        value=search_for_extension,
+    )
+]
 
 
 def _parse_args(args: list[str] | None = None) -> argparse.Namespace:
@@ -120,6 +131,13 @@ def main() -> None:
         log.debug("Verbose logging enabled.")
 
     ensure_required_paths()
+
+    selected = questionary.select(
+        message="Choose and option:", choices=MENU_OPTIONS
+    ).ask()
+
+    if selected:
+        selected()
 
 
 if __name__ == "__main__":
