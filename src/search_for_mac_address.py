@@ -1,11 +1,10 @@
 """Prompt user for MAC address and search config files for it."""
 
 import re
-from typing import Final
 
 import questionary
 
-MAC_ADDRESS_LENGTH: Final[int] = 12
+from globals import MAC_ADDRESS_LENGTH
 
 
 def validate_mac_addr(mac_address: str) -> bool | str:
