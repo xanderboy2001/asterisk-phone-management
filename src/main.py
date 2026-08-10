@@ -7,12 +7,18 @@ import questionary
 
 from globals import REQUIRED_FILES, log
 from search_for_extension import search_for_extension
+from search_for_mac_address import search_for_mac_address
 
 MENU_OPTIONS: list[questionary.Choice] = [
     questionary.Choice(
         title="Search for Extension",
         description="Search config and xml files for a given extension.",
         value=search_for_extension,
+    ),
+    questionary.Choice(
+        title="Search for MAC Address",
+        description="Search config and xml files for a given MAC address.",
+        value=search_for_mac_address,
     ),
 ]
 
