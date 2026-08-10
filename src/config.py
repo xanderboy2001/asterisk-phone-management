@@ -12,10 +12,11 @@ from rich.logging import RichHandler
 
 MAC_ADDRESS_LENGTH: int = 12
 EXTENSION_LENGTH: int = 4
+
 # ETC_ASTERISK: Path = Path("/etc/asterisk")
-ETC_ASTERISK: Path = Path(Path(__file__).parent.parent / "config/asterisk")
+ETC_ASTERISK: Path = Path(Path(__file__).parent.parent / "config" / "asterisk")
 # TFTPBOOT: Path = Path("/var/lib/tftpboot")
-TFTPBOOT: Path = Path(Path(__file__).parent.parent / "config/tftpboot")
+TFTPBOOT: Path = Path(Path(__file__).parent.parent / "config" / "tftpboot")
 # Required files + paths
 REQUIRED_FILES: dict[str, Path] = {
     "SIP_CONF": ETC_ASTERISK / "sip.conf",
@@ -25,13 +26,15 @@ REQUIRED_FILES: dict[str, Path] = {
 }
 
 
-console = Console()
-FORMAT = "%(message)s"
+_LOG_FORMAT: str = "%(message)s"
+
+console: Console = Console()
+
 logging.basicConfig(
     level=logging.INFO,
-    format=FORMAT,
+    format=_LOG_FORMAT,
     datefmt="[%X]",
     handlers=[RichHandler(console=console, rich_tracebacks=True, markup=True)],
 )
 
-log = logging.getLogger("rich")
+log: logging.Logger = logging.getLogger("rich")
