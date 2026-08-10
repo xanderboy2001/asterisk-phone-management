@@ -223,17 +223,8 @@ def scan_xml_files_for_extension(
                     )
 
 
-def main() -> None:
-    """Run the main application logic."""
-    parsed_args = _parse_args()
-    verbose: bool = parsed_args.verbose
-
-    if verbose:
-        log.setLevel(logging.DEBUG)
-        log.debug("Verbose logging enabled.")
-
-    ensure_required_paths()
-
+def search_for_extension() -> None:
+    """Prompt for extension and search config files for it."""
     target_extension: str = read_extension()
 
     scan_tasks: list[tuple[Path, Callable[[str, str], bool]]] = [
@@ -271,6 +262,18 @@ def main() -> None:
             "No references to extension %s were found in the config files.",
             target_extension,
         )
+
+
+def main() -> None:
+    """Run the main application logic."""
+    parsed_args = _parse_args()
+    verbose: bool = parsed_args.verbose
+
+    if verbose:
+        log.setLevel(logging.DEBUG)
+        log.debug("Verbose logging enabled.")
+
+    ensure_required_paths()
 
 
 if __name__ == "__main__":
