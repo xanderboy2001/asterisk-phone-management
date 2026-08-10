@@ -1,13 +1,11 @@
 """Prompt user for MAC address and search config files for it."""
 
-import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-import questionary
-
-from config import MAC_ADDRESS_LENGTH, REQUIRED_FILES, TFTPBOOT, log
+from cli import read_mac_addr
+from config import REQUIRED_FILES, TFTPBOOT, log
 
 MatchRule = Callable[[str, str], bool]
 
@@ -25,48 +23,6 @@ class MACMatch:
     file_path: Path
     line_number: int
     matched_text: str
-
-
-def validate_mac_addr(mac_address: str) -> bool | str:
-    """Check whether a given MAC address is valid.
-
-    Args:
-        mac_address: The MAC address to validate.
-
-    Returns:
-        True if the MAC address is valid, otherwise an error message.
-    """
-    raw_mac: str = re.sub(r"[:\-.]", "", mac_address).upper()
-    if len(raw_mac) != MAC_ADDRESS_LENGTH:
-        return "MAC address must be 12 digits."
-
-    if not re.fullmatch(r"^[0-9A-F]{12}$", raw_mac):
-        return "MAC address must contain hexadecimal characters."
-
-    return True
-
-
-def read_mac_addr() -> str:
-    """Ask the user to enter a MAC address.
-
-    Returns:
-        A validated, normalized MAC address (uppercase, no separators).
-
-    Raises:
-        KeyboardInterrupt: If the user cancels the prompt (e.g. Ctrl+C).
-    """
-    response: str | None = None
-    response = questionary.text(
-        message="Enter a MAC address "
-        + "(e.g., AABBCCDDEEFF, AA:BB:CC:DD:EE:FF)",
-        validate=validate_mac_addr,
-    ).ask()
-
-    if response is None:
-        msg = "Prompt cancelled by user."
-        raise KeyboardInterrupt(msg)
-
-    return re.sub(r"[:\-.]", "", response).upper()
 
 
 def _is_sip_match(line_text: str, mac_address: str) -> bool:

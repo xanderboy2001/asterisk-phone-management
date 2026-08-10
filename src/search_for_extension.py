@@ -4,9 +4,8 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-import questionary
-
-from config import EXTENSION_LENGTH, REQUIRED_FILES, TFTPBOOT, log
+from cli import read_extension
+from config import REQUIRED_FILES, TFTPBOOT, log
 
 MatchRule = Callable[[str, str], bool]
 
@@ -24,43 +23,6 @@ class ExtensionMatch:
     file_path: Path
     line_number: int
     matched_text: str
-
-
-def validate_extension(extension: str) -> bool | str:
-    """Check whether a given extension is valid.
-
-    Args:
-        extension: The extension to validate.
-
-    Returns:
-        True if extension is valid, otherwise an error message.
-    """
-    if len(extension) != EXTENSION_LENGTH or not extension.isdigit():
-        return f"Extension must be {EXTENSION_LENGTH} digits."
-
-    return True
-
-
-def read_extension() -> str:
-    """Prompt the user to enter an extension.
-
-    Returns:
-        A validated extension.
-
-    Raises:
-        KeyboardInterrupt: If the user cancels the prompt (e.g. Ctrl+C)
-    """
-    response: str | None = None
-    response = questionary.text(
-        message="Enter a 4-digit extension (e.g., 1234)",
-        validate=validate_extension,
-    ).ask()
-
-    if response is None:
-        msg = "Prompt cancelled by user."
-        raise KeyboardInterrupt(msg)
-
-    return response
 
 
 def _is_sip_match(line_text: str, extension: str) -> bool:
