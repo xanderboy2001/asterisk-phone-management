@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import re
 from pathlib import Path
 from typing import Final
 
@@ -36,8 +35,6 @@ REQUIRED_FILES: Final[dict[str, Path]] = {
     "VOICEMAIL_CONF": ETC_ASTERISK / "voicemail.conf",
     "XML_TEMPLATE": TFTPBOOT / "SEP0000000.cnf.xml",
 }
-
-MAC_ADDRESS_LENGTH: Final[int] = 12
 
 
 MENU_OPTIONS: Final[list[questionary.Choice]] = [
@@ -83,42 +80,6 @@ def ensure_required_paths() -> None:
         if not file.exists():
             log.error("File '%s' not found!", file)
             raise FileNotFoundError(file)
-
-
-def validate_mac_addr(mac_address: str) -> bool | str:
-    """Check if given MAC address is valid.
-
-    Args:
-        mac_address: The MAC address to validate.
-
-    Returns:
-        True if the MAC address is valid, otherwise an error message.
-    """
-    raw_mac: str = re.sub(r"[:\-.]", "", mac_address).upper()
-    if len(raw_mac) != MAC_ADDRESS_LENGTH:
-        return "MAC address must be 12 digits."
-
-    if not re.fullmatch(r"^[0-9A-F]{12}$", raw_mac):
-        return "MAC address must contain hexadecimal characters."
-
-    return True
-
-
-def read_mac_addr() -> str:
-    """Ask the user to provide an MAC address.
-
-    Returns:
-        Validated MAC address.
-    """
-    response = None
-    while response is None:
-        response = questionary.text(
-            message="Enter a MAC address "
-            + "(e.g., AABBCCDDEEFF, AA:BB:CC:DD:EE:FF)",
-            validate=validate_mac_addr,
-        ).ask()
-
-    return response
 
 
 def main() -> None:
