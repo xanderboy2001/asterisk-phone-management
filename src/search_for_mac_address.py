@@ -102,9 +102,15 @@ def _log_matches(matches: Iterable[MACMatch]) -> int:
     return count
 
 
-def search_for_mac_address() -> None:
-    """Prompt for MAC address and search config files for it."""
-    mac_address: str = read_mac_addr()
+def search_for_mac_address(mac_address: str | None) -> None:
+    """Prompt for MAC address and search config files for it.
+
+    Args:
+        mac_address: MAC address to search for. If None, user
+            is prompted to enter one.
+    """
+    if not mac_address:
+        mac_address = read_mac_addr()
 
     scan_tasks: list[tuple[Path, MatchRule]] = [
         (REQUIRED_FILES["SIP_CONF"], _is_sip_match),
@@ -131,4 +137,4 @@ def search_for_mac_address() -> None:
 
 
 if __name__ == "__main__":
-    search_for_mac_address()
+    search_for_mac_address(None)
