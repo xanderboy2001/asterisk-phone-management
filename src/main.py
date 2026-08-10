@@ -5,7 +5,7 @@ import logging
 
 import questionary
 
-from globals import REQUIRED_FILES, log
+from config import REQUIRED_FILES, log
 from search_for_extension import search_for_extension
 from search_for_mac_address import search_for_mac_address
 

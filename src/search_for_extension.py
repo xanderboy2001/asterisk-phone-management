@@ -6,7 +6,7 @@ from pathlib import Path
 
 import questionary
 
-from globals import EXTENSION_LENGTH, REQUIRED_FILES, TFTPBOOT, log
+from config import EXTENSION_LENGTH, REQUIRED_FILES, TFTPBOOT, log
 
 
 @dataclass

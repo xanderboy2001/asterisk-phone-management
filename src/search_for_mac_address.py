@@ -7,7 +7,7 @@ from pathlib import Path
 
 import questionary
 
-from globals import MAC_ADDRESS_LENGTH, REQUIRED_FILES, TFTPBOOT, log
+from config import MAC_ADDRESS_LENGTH, REQUIRED_FILES, TFTPBOOT, log
 
 
 @dataclass
