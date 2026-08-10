@@ -1,4 +1,8 @@
-"""Hold global variables."""
+"""Application-wide constants and shared configuration.
+
+This module centralizes constants, required file paths, and logging
+configuration used across the Asterisk phone management tool.
+"""
 
 import logging
 from pathlib import Path
