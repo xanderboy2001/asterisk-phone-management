@@ -9,10 +9,12 @@ import questionary
 
 from config import MAC_ADDRESS_LENGTH, REQUIRED_FILES, TFTPBOOT, log
 
+MatchRule = Callable[[str, str], bool]
 
-@dataclass
+
+@dataclass(frozen=True)
 class MACMatch:
-    """Dataclass to hold information about found MAC addresses in config files.
+    """Information about found MAC addresses in a config file.
 
     Attributes:
         file_path: Path to the config file.
@@ -26,7 +28,7 @@ class MACMatch:
 
 
 def validate_mac_addr(mac_address: str) -> bool | str:
-    """Check if given MAC address is valid.
+    """Check whether a given MAC address is valid.
 
     Args:
         mac_address: The MAC address to validate.
@@ -45,20 +47,26 @@ def validate_mac_addr(mac_address: str) -> bool | str:
 
 
 def read_mac_addr() -> str:
-    """Ask the user to provide an MAC address.
+    """Ask the user to enter a MAC address.
 
     Returns:
-        Validated MAC address.
-    """
-    response = None
-    while response is None:
-        response = questionary.text(
-            message="Enter a MAC address "
-            + "(e.g., AABBCCDDEEFF, AA:BB:CC:DD:EE:FF)",
-            validate=validate_mac_addr,
-        ).ask()
+        A validated, normalized MAC address (uppercase, no separators).
 
-    return response.upper()
+    Raises:
+        KeyboardInterrupt: If the user cancels the prompt (e.g. Ctrl+C).
+    """
+    response: str | None = None
+    response = questionary.text(
+        message="Enter a MAC address "
+        + "(e.g., AABBCCDDEEFF, AA:BB:CC:DD:EE:FF)",
+        validate=validate_mac_addr,
+    ).ask()
+
+    if response is None:
+        msg = "Prompt cancelled by user."
+        raise KeyboardInterrupt(msg)
+
+    return re.sub(r"[:\-.]", "", response).upper()
 
 
 def _is_sip_match(line_text: str, mac_address: str) -> bool:
@@ -74,15 +82,15 @@ def scan_asterisk_file_for_mac_address(
     mac_address: str,
     match_rule: Callable[[str, str], bool],
 ) -> Iterable[MACMatch]:
-    """Search provided asterisk config file for a given MAC address.
+    """Search single Asterisk config file for a given MAC address.
 
     Args:
         file_path: Path to the config file to scan.
-        mac_address: Extension to search for.
-        match_rule: Match rule to use.
+        mac_address: MAC address to search for.
+        match_rule: Callable used to decide whether a line matches.
 
     Yields:
-        MACMatch: Object containing information about the match.
+        MACMatch: Information about each match found.
     """
     with file_path.open(mode="r", encoding="utf-8") as current_file:
         for line_number, line_text in enumerate(current_file, start=1):
@@ -95,20 +103,21 @@ def scan_asterisk_file_for_mac_address(
 
 
 def scan_xml_files_for_mac_address(mac_address: str) -> Iterable[MACMatch]:
-    """Scan all .cnf.xml files in globals.TFTPBOOT for a given MAC address.
+    """Scan all ``.cnf.xml`` files in ``TFTPBOOT`` for a given MAC address.
 
     Args:
-        mac_address: The MAC address to search for.
+        mac_address: MAC address to search for.
 
     Yields:
-        MACMatch: Object containing information about the match.
+        MACMatch: Information about the match.
     """
     xml_files: Iterable[Path] = TFTPBOOT.glob(pattern="*.cnf.xml")
+    needle: str = f"<name>{mac_address}</name>"
 
     for file in xml_files:
         with file.open(mode="r", encoding="utf-8") as current_file:
             for line_number, line_text in enumerate(current_file, start=1):
-                if f"<name>{mac_address}</name>" in line_text.strip():
+                if needle in line_text.strip():
                     yield MACMatch(
                         file_path=file,
                         line_number=line_number,
@@ -116,42 +125,53 @@ def scan_xml_files_for_mac_address(mac_address: str) -> Iterable[MACMatch]:
                     )
 
 
+def _log_matches(matches: Iterable[MACMatch]) -> int:
+    """Log each match found and report how many were logged.
+
+    Args:
+        matches: Matches to log.
+
+    Returns:
+        The number of matches logged.
+    """
+    count: int = 0
+    for match in matches:
+        count += 1
+        log.info(
+            "[bold green]Match Found[/bold green] in %s (Line %d): %s",
+            match.file_path.name,
+            match.line_number,
+            match.matched_text,
+        )
+    return count
+
+
 def search_for_mac_address() -> None:
     """Prompt for MAC address and search config files for it."""
     mac_address: str = read_mac_addr()
 
-    scan_tasks: list[tuple[Path, Callable[[str, str], bool]]] = [
+    scan_tasks: list[tuple[Path, MatchRule]] = [
         (REQUIRED_FILES["SIP_CONF"], _is_sip_match),
         (REQUIRED_FILES["EXTENSIONS_CONF"], _is_extensions_match),
     ]
 
     matches_found: int = 0
     for file_path, match_rule in scan_tasks:
-        for match in scan_asterisk_file_for_mac_address(
-            file_path=file_path,
-            mac_address=mac_address,
-            match_rule=match_rule,
-        ):
-            matches_found += 1
-            log.info(
-                "[bold green]Match Found[/bold green] in %s (Line %d): %s",
-                match.file_path.name,
-                match.line_number,
-                match.matched_text,
+        matches_found += _log_matches(
+            scan_asterisk_file_for_mac_address(
+                file_path=file_path,
+                mac_address=mac_address,
+                match_rule=match_rule,
             )
-        for match in scan_xml_files_for_mac_address(mac_address=mac_address):
-            matches_found += 1
-            log.info(
-                "[bold green]Match Found[/bold green] in %s (Line %d): %s",
-                match.file_path.name,
-                match.line_number,
-                match.matched_text,
-            )
-        if matches_found == 0:
-            log.warning(
-                "No reference to MAC address %s found in the config files.",
-                mac_address,
-            )
+        )
+
+    matches_found += _log_matches(scan_xml_files_for_mac_address(mac_address))
+
+    if matches_found == 0:
+        log.warning(
+            "No reference to MAC address %s found in the config files.",
+            mac_address,
+        )
 
 
 if __name__ == "__main__":
