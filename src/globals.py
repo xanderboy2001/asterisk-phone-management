@@ -3,11 +3,8 @@
 import logging
 from pathlib import Path
 
-from questionary import Choice
 from rich.console import Console
 from rich.logging import RichHandler
-
-from search_for_extension import search_for_extension
 
 MAC_ADDRESS_LENGTH: int = 12
 EXTENSION_LENGTH: int = 4
@@ -23,14 +20,6 @@ REQUIRED_FILES: dict[str, Path] = {
     "XML_TEMPLATE": TFTPBOOT / "SEP0000000.cnf.xml",
 }
 
-
-MENU_OPTIONS: list[Choice] = [
-    Choice(
-        title="Search for Extension",
-        description="Search config and xml files for a given extension.",
-        value=search_for_extension,
-    )
-]
 
 console = Console()
 FORMAT = "%(message)s"

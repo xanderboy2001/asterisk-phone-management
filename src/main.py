@@ -4,23 +4,17 @@ import argparse
 import logging
 
 import questionary
-from rich.console import Console
-from rich.logging import RichHandler
 
-from globals import MENU_OPTIONS, REQUIRED_FILES
+from globals import REQUIRED_FILES, log
+from search_for_extension import search_for_extension
 
-console = Console()
-
-
-FORMAT = "%(message)s"
-logging.basicConfig(
-    level=logging.INFO,
-    format=FORMAT,
-    datefmt="[%X]",
-    handlers=[RichHandler(console=console, rich_tracebacks=True, markup=True)],
-)
-
-log = logging.getLogger("rich")
+MENU_OPTIONS: list[questionary.Choice] = [
+    questionary.Choice(
+        title="Search for Extension",
+        description="Search config and xml files for a given extension.",
+        value=search_for_extension,
+    ),
+]
 
 
 def _parse_args(args: list[str] | None = None) -> argparse.Namespace:
