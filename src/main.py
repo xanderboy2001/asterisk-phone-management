@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+from pathlib import Path
 
 import questionary
 from questionary import Choice
@@ -28,8 +29,8 @@ def _parse_args(args: list[str] | None = None) -> argparse.Namespace:
     """Parse command-line arguments.
 
     Args:
-        args: Command-line arguments to parse.
-            Defaults to None.
+        args: Command-line arguments to parse. Defaults to None, in
+            which case ``sys.argv[1:]`` is used.
 
     Returns:
         The parsed command-line arguments.
@@ -49,15 +50,24 @@ def _parse_args(args: list[str] | None = None) -> argparse.Namespace:
 
 
 def ensure_required_paths() -> None:
-    """Check for existence of all paths in REQUIRED_FILES.
+    """Verify that every path in ``REQUIRED_FILES`` exists.
+
+    Every missing path is logged before an exception is raised, so a
+    single run reports the full set of problems instead of stopping at
+    the first one.
 
     Raises:
-        FileNotFoundError: if a file doesn't exist.
+        FileNotFoundError: If any required file is missing.
     """
-    for file in REQUIRED_FILES.values():
-        if not file.exists():
-            log.error("File '%s' not found!", file)
-            raise FileNotFoundError(file)
+    missing: list[Path] = [
+        path for path in REQUIRED_FILES.values() if not path.exists()
+    ]
+
+    for path in missing:
+        log.error("File '%s' not found!", path)
+
+    if missing:
+        raise FileNotFoundError(missing[0])
 
 
 def main() -> None:
