@@ -87,28 +87,30 @@ def scan_xml_files_for_extension(
                     )
 
 
-def _log_matches(matches: Iterable[ExtensionMatch]) -> int:
+def _log_and_collect_matches(
+    matches: Iterable[ExtensionMatch],
+) -> list[ExtensionMatch]:
     """Log each match found and report how many were logged.
 
     Args:
         matches: Matches to log.
 
     Returns:
-        The number of matches logged.
+        A list of ExtensionMatch objects.
     """
-    count: int = 0
+    collected: list[ExtensionMatch] = []
     for match in matches:
-        count += 1
         log.info(
             "[bold green]Match Found[/bold green] in %s (Line %d): %s",
             match.file_path.name,
             match.line_number,
             match.matched_text,
         )
-    return count
+        collected.append(match)
+    return collected
 
 
-def search_for_extension(extension: str | None = None) -> bool:
+def search_for_extension(extension: str | None = None) -> list[ExtensionMatch]:
     """Prompt for extension and search config files for it.
 
     Args:
@@ -116,7 +118,7 @@ def search_for_extension(extension: str | None = None) -> bool:
             If not provided, prompts user to enter one.
 
     Returns:
-        True if extension was found, False otherwise.
+        List of ExtensionMatch dataclasses representing matches found.
     """
     if not extension:
         extension = read_extension()
@@ -127,28 +129,27 @@ def search_for_extension(extension: str | None = None) -> bool:
         (REQUIRED_FILES["VOICEMAIL_CONF"], _is_voicemail_match),
     ]
 
-    matches_found: int = 0
-    for file_path, match_rule in scan_tasks:
-        matches_found += _log_matches(
-            scan_asterisk_file_for_extension(
-                file_path=file_path,
-                target_extension=extension,
-                match_rule=match_rule,
-            )
-        )
+    all_matches: list[ExtensionMatch] = []
 
-    matches_found += _log_matches(
-        matches=scan_xml_files_for_extension(extension)
+    for file_path, match_rule in scan_tasks:
+        found = scan_asterisk_file_for_extension(
+            file_path=file_path,
+            target_extension=extension,
+            match_rule=match_rule,
+        )
+        all_matches.extend(_log_and_collect_matches(found))
+
+    all_matches.extend(
+        _log_and_collect_matches(scan_xml_files_for_extension(extension))
     )
 
-    if matches_found == 0:
+    if not all_matches:
         log.warning(
-            "No references to extension %s were found in the config files.",
+            "No references to extension %s were found in the config file.",
             extension,
         )
-        return False
-    else:
-        return True
+
+    return all_matches
 
 
 if __name__ == "__main__":

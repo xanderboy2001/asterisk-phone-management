@@ -81,7 +81,7 @@ def scan_xml_files_for_mac_address(mac_address: str) -> Iterable[MACMatch]:
                     )
 
 
-def _log_matches(matches: Iterable[MACMatch]) -> int:
+def _log_and_collect_matches(matches: Iterable[MACMatch]) -> list[MACMatch]:
     """Log each match found and report how many were logged.
 
     Args:
@@ -90,19 +90,19 @@ def _log_matches(matches: Iterable[MACMatch]) -> int:
     Returns:
         The number of matches logged.
     """
-    count: int = 0
+    collected: list[MACMatch] = []
     for match in matches:
-        count += 1
         log.info(
             "[bold green]Match Found[/bold green] in %s (Line %d): %s",
             match.file_path.name,
             match.line_number,
             match.matched_text,
         )
-    return count
+        collected.append(match)
+    return collected
 
 
-def search_for_mac_address(mac_address: str | None = None) -> bool:
+def search_for_mac_address(mac_address: str | None = None) -> list[MACMatch]:
     """Prompt for MAC address and search config files for it.
 
     Args:
@@ -120,26 +120,29 @@ def search_for_mac_address(mac_address: str | None = None) -> bool:
         (REQUIRED_FILES["EXTENSIONS_CONF"], _is_extensions_match),
     ]
 
-    matches_found: int = 0
+    all_matches: list[MACMatch] = []
+
     for file_path, match_rule in scan_tasks:
-        matches_found += _log_matches(
-            scan_asterisk_file_for_mac_address(
-                file_path=file_path,
-                mac_address=mac_address,
-                match_rule=match_rule,
-            )
+        if not file_path.exists():
+            continue
+        found = scan_asterisk_file_for_mac_address(
+            file_path=file_path,
+            mac_address=mac_address,
+            match_rule=match_rule,
         )
+        all_matches.extend(_log_and_collect_matches(found))
 
-    matches_found += _log_matches(scan_xml_files_for_mac_address(mac_address))
+    all_matches.extend(
+        _log_and_collect_matches(scan_xml_files_for_mac_address(mac_address))
+    )
 
-    if matches_found == 0:
+    if not all_matches:
         log.warning(
             "No reference to MAC address %s found in the config files.",
             mac_address,
         )
-        return False
-    else:
-        return True
+
+    return all_matches
 
 
 if __name__ == "__main__":
