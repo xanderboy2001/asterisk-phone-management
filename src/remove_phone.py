@@ -10,7 +10,7 @@ from rich.table import Table
 
 from cli import read_extension, read_mac_addr
 from config import REQUIRED_FILES, TFTPBOOT, console, log
-from register_phone import backup_config_file, safe_exit
+from helpers import backup_config_file, safe_exit
 from search_for_extension import ExtensionMatch, search_for_extension
 from search_for_mac_address import MACMatch, search_for_mac_address
 
