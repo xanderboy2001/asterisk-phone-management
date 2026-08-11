@@ -9,6 +9,7 @@ from questionary import Choice
 
 from config import REQUIRED_FILES, log
 from register_phone import register_phone
+from remove_phone import remove_phone
 from search_for_extension import search_for_extension
 from search_for_mac_address import search_for_mac_address
 
@@ -27,6 +28,11 @@ MENU_OPTIONS: list[Choice] = [
         title="Register Phone",
         description="Register a new phone.",
         value=register_phone,
+    ),
+    Choice(
+        title="Delete Phone",
+        description="Remove/deregister phone.",
+        value=remove_phone,
     ),
 ]
 

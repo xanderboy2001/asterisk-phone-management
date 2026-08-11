@@ -178,7 +178,18 @@ def generate_cnf_xml(extension: str, mac_address: str) -> None:
     log.info("Successfully created and patched '%s'", new_cnf_xml)
 
 
-def _backup_config_file(src_config: Path) -> Path:
+def backup_config_file(src_config: Path) -> Path:
+    """Backs up a config file with an appended timestamp.
+
+    Args:
+        src_config: The config to backup.
+
+    Returns:
+        The path to the newly created backup.
+
+    Raises:
+        FileNotFoundError: If the provided config file was not found.
+    """
     backup_dir: Path = src_config.parent / "backup"
     timestamp: str = datetime.now(tz=ZoneInfo("America/New_York")).strftime(
         "%Y-%m-%d_%H:%M:%S"
@@ -217,7 +228,7 @@ def _write_provisioning_files(
     generate_cnf_xml(extension=phone.extension, mac_address=phone.mac_address)
     created_files.append(cnf_path)
 
-    backups[sip_conf] = _backup_config_file(sip_conf)
+    backups[sip_conf] = backup_config_file(sip_conf)
     patch_file(
         sip_conf,
         f"\n[SEP{phone.mac_address}](phone)\n"
@@ -226,7 +237,7 @@ def _write_provisioning_files(
         f"caller_id={phone.caller_id}\n\n",
     )
 
-    backups[ext_conf] = _backup_config_file(ext_conf)
+    backups[ext_conf] = backup_config_file(ext_conf)
     patch_file(
         ext_conf,
         f"exten => {phone.extension}"
