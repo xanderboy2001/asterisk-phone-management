@@ -8,6 +8,7 @@ import questionary
 from questionary import Choice
 
 from config import REQUIRED_FILES, log
+from register_phone import register_phone
 from search_for_extension import search_for_extension
 from search_for_mac_address import search_for_mac_address
 
@@ -21,6 +22,11 @@ MENU_OPTIONS: list[Choice] = [
         title="Search for MAC Address",
         description="Search config and xml files for a given MAC address.",
         value=search_for_mac_address,
+    ),
+    Choice(
+        title="Register Phone",
+        description="Register a new phone.",
+        value=register_phone,
     ),
 ]
 

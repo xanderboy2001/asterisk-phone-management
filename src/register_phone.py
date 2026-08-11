@@ -1,6 +1,8 @@
 """Registers a CISCO Phone in the Asterisk PBX phone system."""
 
 import shutil
+import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -49,6 +51,43 @@ class Voicemail:
     email: str
 
 
+def safe_exit(
+    created_files: Iterable[Path] | None = None,
+    backups: dict[Path, Path] | None = None,
+    exit_code: int = 1,
+) -> None:
+    """Reverts all changes and exits the script.
+
+    Args:
+        created_files: Paths of new files created during execution to delete.
+        backups: Mapping of original file paths to backup filepaths to restore.
+        exit_code: System exit code to return.
+    """
+    log.warning("Initiating safe exit. Reverting changes...")
+
+    if created_files:
+        for file_path in created_files:
+            if file_path.exists():
+                try:
+                    file_path.unlink()
+                    log.info("Removed created file: %s", file_path)
+                except OSError as e:
+                    log.error("Failed to remove '%s': %s", file_path, e)
+
+    if backups:
+        for original_path, backup_path in backups.items():
+            if backup_path.exists():
+                try:
+                    shutil.copyfile(src=backup_path, dst=original_path)
+                    log.info(
+                        "Restored '%s' from '%s'", original_path, backup_path
+                    )
+                except OSError as e:
+                    log.error("Failed to restore '%s': %s", original_path, e)
+
+    sys.exit(exit_code)
+
+
 def print_phone_information(
     phone: Phone, voicemail: Voicemail | None = None
 ) -> None:
@@ -75,7 +114,6 @@ def print_phone_information(
 
 def _copy_file_safe(src: Path, dst: Path) -> None:
     try:
-        log.debug("Copying '%s' to '%s'...", src, dst)
         shutil.copyfile(src=src, dst=dst)
     except FileNotFoundError:
         log.error(
@@ -115,31 +153,19 @@ def generate_cnf_xml(extension: str, mac_address: str) -> None:
     cnf_xml_template: Path = REQUIRED_FILES["XML_TEMPLATE"]
     new_cnf_xml: Path = TFTPBOOT / f"SEP{mac_address}.cnf.xml"
 
-    log.debug("Copying template .cnf.xml file to '%s'...", new_cnf_xml)
     _copy_file_safe(src=cnf_xml_template, dst=new_cnf_xml)
-    log.debug("Copied template .cnf.xml file to '%s'", new_cnf_xml)
 
-    log.debug(
-        "Patching extension '%d' into new .cnf.xml file '%s'...",
-        extension,
-        new_cnf_xml,
-    )
     _patch_cnf_xml(
         file_path=new_cnf_xml,
         placeholder="--EXTENNUMBER--",
         new_value=extension,
     )
     log.debug(
-        "Patched extension '%d' into new .cnf.xml file '%s'.",
+        "Patched extension '%s' into new .cnf.xml file '%s'.",
         extension,
         new_cnf_xml,
     )
 
-    log.debug(
-        "Patching MAC address '%s' into new .cnf.xml file '%s'...",
-        mac_address,
-        new_cnf_xml,
-    )
     _patch_cnf_xml(
         file_path=new_cnf_xml, placeholder="--SEPMAC--", new_value=mac_address
     )
@@ -152,17 +178,18 @@ def generate_cnf_xml(extension: str, mac_address: str) -> None:
     log.info("Successfully created and patched '%s'", new_cnf_xml)
 
 
-def _backup_config_file(src_config: Path) -> None:
-    log.debug("Backing up '%s'...", src_config)
+def _backup_config_file(src_config: Path) -> Path:
     backup_dir: Path = src_config.parent / "backup"
+    timestamp: str = datetime.now(tz=ZoneInfo("America/New_York")).strftime(
+        "%Y-%m-%d_%H:%M:%S"
+    )
     if not backup_dir.exists():
         log.error("Backup directory does not exist!")
         raise FileNotFoundError(backup_dir)
-    current_datetime = datetime.now(tz=ZoneInfo("America/New_York"))
-    formatted_datetime = current_datetime.strftime("%Y-%m-%d_%H:%M:%S")
-    backup_path: Path = backup_dir / Path(f"{src_config}_{formatted_datetime}")
+    backup_path: Path = backup_dir / Path(f"{src_config}_{timestamp}")
     _copy_file_safe(src=src_config, dst=backup_path)
     log.debug("Backed up '%s'", src_config)
+    return backup_path
 
 
 def patch_file(file_path: Path, content: str) -> None:
@@ -172,16 +199,63 @@ def patch_file(file_path: Path, content: str) -> None:
         file_path: Path of file to modify.
         content: String content to append.
     """
-    log.debug("Appending '%s' to '%s'...", content, file_path)
     with file_path.open(mode="a", encoding="utf=8") as file:
         file.write(content)
     log.debug("Appended '%s' to '%s'", content, file_path)
 
 
-def main() -> None:
-    """Main orchestrator."""
-    extensions_conf = REQUIRED_FILES["EXTENSIONS_CONF"]
+def _write_provisioning_files(
+    phone: Phone,
+    voicemail: Voicemail | None,
+    created_files: list[Path],
+    backups: dict[Path, Path],
+) -> None:
+    ext_conf = REQUIRED_FILES["EXTENSIONS_CONF"]
     sip_conf: Path = REQUIRED_FILES["SIP_CONF"]
+
+    cnf_path = TFTPBOOT / f"SEP{phone.mac_address}.cnf.xml"
+    generate_cnf_xml(extension=phone.extension, mac_address=phone.mac_address)
+    created_files.append(cnf_path)
+
+    backups[sip_conf] = _backup_config_file(sip_conf)
+    patch_file(
+        sip_conf,
+        f"\n[SEP{phone.mac_address}](phone)\n"
+        f"authname=SEP{phone.mac_address}\n"
+        f"secret=SEP{phone.mac_address}\n"
+        f"caller_id={phone.caller_id}\n\n",
+    )
+
+    backups[ext_conf] = _backup_config_file(ext_conf)
+    patch_file(
+        ext_conf,
+        f"exten => {phone.extension}"
+        f",1,Dial(SIP/SEP{phone.mac_address},14,t)\n",
+    )
+
+    if voicemail:
+        patch_file(
+            ext_conf,
+            f"exten => {phone.extension},n,Voicemail({phone.extension},u)\n",
+        )
+
+
+def _provision_phone(
+    phone: Phone,
+    voicemail: Voicemail | None,
+) -> None:
+    created_files: list[Path] = []
+    backups: dict[Path, Path] = {}
+
+    try:
+        _write_provisioning_files(phone, voicemail, created_files, backups)
+    except OSError as err:
+        log.error("File system error during phone registration: %s", err)
+        safe_exit(created_files=created_files, backups=backups)
+
+
+def register_phone() -> None:
+    """Main orchestrator."""
     extension: str = read_extension()
     if search_for_extension(extension):
         log.error("Extension '%s' is already in use!", extension)
@@ -192,10 +266,10 @@ def main() -> None:
         log.error("MAC address '%s' is already in use!", mac_address)
         return
 
-    caller_id: str = read_caller_id(extension)
-
-    new_phone: Phone = Phone(
-        extension=extension, mac_address=mac_address, caller_id=caller_id
+    phone: Phone = Phone(
+        extension=extension,
+        mac_address=mac_address,
+        caller_id=read_caller_id(extension),
     )
 
     use_voicemail: bool | None = None
@@ -204,11 +278,13 @@ def main() -> None:
             message="Will this phone have need voicemail?", default=False
         ).ask()
 
-    new_voicemail: Voicemail | None = None
-    if use_voicemail:
-        new_voicemail = Voicemail(name=read_name(), email=read_email())
+    voicemail = (
+        Voicemail(name=read_name(), email=read_email())
+        if use_voicemail
+        else None
+    )
 
-    print_phone_information(new_phone, new_voicemail)
+    print_phone_information(phone, voicemail)
 
     should_continue: bool | None = None
     while should_continue is None:
@@ -221,30 +297,8 @@ def main() -> None:
         log.error("User cancelled interaction.")
         return
 
-    generate_cnf_xml(extension=extension, mac_address=mac_address)
-    _backup_config_file(sip_conf)
-    sip_content = f"""
-[SEP{mac_address}](phone)
-authname=SEP{mac_address}
-secret=SEP{mac_address}
-callerid={caller_id}
-
-
-"""
-    patch_file(sip_conf, sip_content)
-
-    _backup_config_file(extensions_conf)
-    extensions_content: str = (
-        f"exten => {extension},1,Dial(SIP/SEP{mac_address},14,t)"
-    )
-    patch_file(extensions_conf, extensions_content)
-    extensions_voicemail_content: str = (
-        f"exten => {extension},n,Voicemail({extension},u)"
-    )
-
-    if use_voicemail:
-        patch_file(extensions_conf, extensions_voicemail_content)
+    _provision_phone(phone, voicemail)
 
 
 if __name__ == "__main__":
-    main()
+    register_phone()
