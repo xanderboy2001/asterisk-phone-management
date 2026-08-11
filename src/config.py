@@ -25,6 +25,8 @@ REQUIRED_FILES: dict[str, Path] = {
     "XML_TEMPLATE": TFTPBOOT / "SEP0000000.cnf.xml",
 }
 
+SIP_CONF_BACKUP_BASE: Path = ETC_ASTERISK / "backup" / "sip.conf.bak"
+
 
 _LOG_FORMAT: str = "%(message)s"
 

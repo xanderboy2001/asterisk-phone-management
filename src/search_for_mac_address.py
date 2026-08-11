@@ -102,7 +102,7 @@ def _log_matches(matches: Iterable[MACMatch]) -> int:
     return count
 
 
-def search_for_mac_address(mac_address: str | None) -> bool:
+def search_for_mac_address(mac_address: str | None = None) -> bool:
     """Prompt for MAC address and search config files for it.
 
     Args:

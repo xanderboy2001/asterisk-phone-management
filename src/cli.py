@@ -84,3 +84,115 @@ def read_mac_addr() -> str:
         raise KeyboardInterrupt(msg)
 
     return re.sub(r"[:\-.]", "", response).upper()
+
+
+def read_caller_id(extension: str) -> str:
+    """Prompt the user to enter a caller ID.
+
+    Returns:
+        A caller ID string.
+
+    Raises:
+        KeyboardInterrupt: If the user cancels the prompt (e.g. Ctrl+C).
+    """
+    response: str | None = None
+    response = questionary.text(
+        message="Enter a caller ID", default=f'"{extension}" <{extension}>'
+    ).ask()
+
+    if response is None:
+        msg = "Prompt cancelled by user."
+        raise KeyboardInterrupt(msg)
+
+    if not response.endswith(f"<{extension}>"):
+        return f"{response} <{extension}>"
+    else:
+        return response
+
+
+def read_name() -> str:
+    """Prompt the user to enter a name for voicemail.
+
+    Returns:
+        The name to use for voicemail.
+
+    Raises:
+        KeyboardInterrupt: If the user cancels the prompt (e.g. Ctrl+C).
+    """
+    response: str | None = None
+    response = questionary.text(
+        message="Enter a name to use for voicemail"
+    ).ask()
+
+    if response is None:
+        msg = "Prompt cancelled by user."
+        raise KeyboardInterrupt(msg)
+
+    return response.strip()
+
+
+def validate_email(email: str) -> str | bool:
+    """Check whether a given email address is valid.
+
+    Args:
+        email: The email to validate.
+
+    Returns:
+        True if email is valid, error string otherwise.
+    """
+    label_regex = re.compile(
+        r"^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+    )
+    tld_regex = re.compile(r"^[a-zA-Z]{2,}$")
+    email = email.strip()
+    parts: list[str] = email.split("@")
+
+    if len(parts) != 2 or not parts[0] or not parts[1]:  # ruff: ignore[magic-value-comparison]
+        return "Malformed email! Must follow local@domain format."
+
+    domain_part = parts[1]
+    domain_parts: list[str] = domain_part.split(".")
+
+    if len(domain_part) > 253:  # ruff: ignore[magic-value-comparison]
+        return "Malformed email! Domain name is too long."
+
+    if len(domain_parts) < 2:  # ruff: ignore[magic-value-comparison]
+        return "Malformed email! Domain name must include a TLD (e.g., .com)."
+
+    for label in domain_parts:
+        if not label_regex.match(label):
+            return (
+                "Malformed email! Subdomains must be 1-63 chars long and "
+                + "contain only letters, numbers, or internal hyphens."
+            )
+
+    tld = domain_parts[-1]
+    if not tld_regex.match(tld):
+        return (
+            "Malformed email! Top-level domain must be at least 2 letters "
+            + "(e.g., .com, .org)."
+        )
+
+    return True
+
+
+def read_email() -> str:
+    """Prompt the user to enter an email address for voicemail.
+
+    Returns:
+        Validated, normalized email string (lowercase).
+
+    Raises:
+        KeyboardInterrupt: If the user cancels the prompt (e.g. Ctrl+C).
+    """
+    response: str | None = None
+    response = questionary.text(
+        message="Enter an email address to use for voicemail",
+        validate=validate_email,
+    ).ask()
+
+    if response is None:
+        msg = "Prompt cancelled by user."
+        raise KeyboardInterrupt(msg)
+
+    return response.strip()

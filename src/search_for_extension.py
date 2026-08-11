@@ -108,7 +108,7 @@ def _log_matches(matches: Iterable[ExtensionMatch]) -> int:
     return count
 
 
-def search_for_extension(extension: str | None) -> bool:
+def search_for_extension(extension: str | None = None) -> bool:
     """Prompt for extension and search config files for it.
 
     Args:
