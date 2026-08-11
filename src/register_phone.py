@@ -197,7 +197,7 @@ def backup_config_file(src_config: Path) -> Path:
     if not backup_dir.exists():
         log.error("Backup directory does not exist!")
         raise FileNotFoundError(backup_dir)
-    backup_path: Path = backup_dir / Path(f"{src_config}_{timestamp}")
+    backup_path: Path = backup_dir / Path(f"{src_config.name}_{timestamp}")
     _copy_file_safe(src=src_config, dst=backup_path)
     log.debug("Backed up '%s'", src_config)
     return backup_path
