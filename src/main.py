@@ -111,7 +111,10 @@ def main() -> None:
 
     while True:
         selected = questionary.select(
-            message="Choose an option:", choices=MENU_OPTIONS
+            message="Choose an option:",
+            choices=MENU_OPTIONS,
+            use_jk_keys=False,
+            use_search_filter=True,
         ).ask()
 
         if selected is None or selected == "exit":
