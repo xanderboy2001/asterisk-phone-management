@@ -17,6 +17,14 @@ from search_for_mac_address import search_for_mac_address
 
 MENU_OPTIONS: list[Choice] = [
     Choice(
+        title="Reload Asterisk",
+        description=(
+            "Reload the Asterisk service to account "
+            "for changes made to config files."
+        ),
+        value=[reload_asterisk],
+    ),
+    Choice(
         title="Search for Extension",
         description="Search config and xml files for a given extension.",
         value=[search_for_extension],
