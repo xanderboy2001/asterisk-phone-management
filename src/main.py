@@ -105,7 +105,7 @@ def main() -> None:
     ensure_required_paths()
 
     selected = questionary.select(
-        message="Choose and option:", choices=MENU_OPTIONS
+        message="Choose an option:", choices=MENU_OPTIONS
     ).ask()
 
     if selected is None:
