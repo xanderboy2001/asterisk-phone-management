@@ -7,7 +7,7 @@ from pathlib import Path
 import questionary
 from questionary import Choice
 
-from config import REQUIRED_FILES, log
+from config import REQUIRED_FILES, console, log
 from edit_files import edit_files
 from register_phone import register_phone
 from reload_asterisk import reload_asterisk
@@ -40,6 +40,11 @@ MENU_OPTIONS: list[Choice] = [
         title="Edit System Files",
         description="Edit an Asterisk config file.",
         value=[edit_files],
+    ),
+    Choice(
+        title="Exit",
+        description="Exit the program.",
+        value="exit",
     ),
 ]
 
@@ -104,16 +109,18 @@ def main() -> None:
 
     ensure_required_paths()
 
-    selected = questionary.select(
-        message="Choose an option:", choices=MENU_OPTIONS
-    ).ask()
+    while True:
+        selected = questionary.select(
+            message="Choose an option:", choices=MENU_OPTIONS
+        ).ask()
 
-    if selected is None:
-        log.error("User cancelled prompt")
-        return
+        if selected is None or selected == "exit":
+            break
 
-    for function in selected:
-        function()
+        for function in selected:
+            console.print()
+            function()
+            console.print()
 
 
 if __name__ == "__main__":
