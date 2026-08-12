@@ -9,7 +9,14 @@ from questionary import Choice
 from rich.table import Table
 
 from cli import read_extension, read_mac_addr
-from config import REQUIRED_FILES, TFTPBOOT, console, log
+from config import (
+    EXTENSIONS_CONF,
+    SIP_CONF,
+    TFTPBOOT,
+    VOICEMAIL_CONF,
+    console,
+    log,
+)
 from helpers import backup_config_file, safe_exit
 from reload_asterisk import reload_asterisk
 from search_for_extension import ExtensionMatch, search_for_extension
@@ -129,25 +136,22 @@ def _remove_voicemail_entry(vm_conf: Path, extension: str) -> None:
 
 
 def _deprovision_phone(extension: str, mac_address: str) -> None:
-    sip_conf: Path = REQUIRED_FILES["SIP_CONF"]
-    ext_conf: Path = REQUIRED_FILES["EXTENSIONS_CONF"]
-    vm_conf: Path = REQUIRED_FILES["VOICEMAIL_CONF"]
     xml_path = TFTPBOOT / f"SEP{mac_address}.cnf.xml"
 
     backups: dict[Path, Path] = {}
 
     try:
-        backups[sip_conf] = backup_config_file(sip_conf)
-        backups[ext_conf] = backup_config_file(ext_conf)
-        backups[vm_conf] = backup_config_file(vm_conf)
+        backups[SIP_CONF] = backup_config_file(SIP_CONF)
+        backups[EXTENSIONS_CONF] = backup_config_file(EXTENSIONS_CONF)
+        backups[VOICEMAIL_CONF] = backup_config_file(VOICEMAIL_CONF)
     except OSError as err:
         log.error("File system error during backup creation: %s", err)
         safe_exit(backups=backups)
 
     try:
-        _remove_sip_section(sip_conf, mac_address)
-        _remove_extension_lines(ext_conf, extension)
-        _remove_voicemail_entry(vm_conf, extension)
+        _remove_sip_section(SIP_CONF, mac_address)
+        _remove_extension_lines(EXTENSIONS_CONF, extension)
+        _remove_voicemail_entry(VOICEMAIL_CONF, extension)
         _remove_cnf_xml(xml_path)
 
         log.info(

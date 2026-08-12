@@ -73,14 +73,18 @@ def ensure_required_paths() -> None:
         FileNotFoundError: If any required file is missing.
     """
     missing: list[Path] = [
-        path for path in REQUIRED_FILES.values() if not path.exists()
+        path for path in REQUIRED_FILES if not path.exists()
     ]
 
     for path in missing:
         log.error("File '%s' not found!", path)
 
     if missing:
-        raise FileNotFoundError(missing[0])
+        msg = (
+            f"Missing {len(missing)} required file(s): "
+            f"{', '.join(str(p) for p in missing)}"
+        )
+        raise FileNotFoundError(msg)
 
 
 def main() -> None:

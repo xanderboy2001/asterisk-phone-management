@@ -18,12 +18,17 @@ ETC_ASTERISK: Path = Path(Path(__file__).parent.parent / "config" / "asterisk")
 # TFTPBOOT: Path = Path("/var/lib/tftpboot")
 TFTPBOOT: Path = Path(Path(__file__).parent.parent / "config" / "tftpboot")
 # Required files + paths
-REQUIRED_FILES: dict[str, Path] = {
-    "SIP_CONF": ETC_ASTERISK / "sip.conf",
-    "EXTENSIONS_CONF": ETC_ASTERISK / "extensions.conf",
-    "VOICEMAIL_CONF": ETC_ASTERISK / "voicemail.conf",
-    "XML_TEMPLATE": TFTPBOOT / "SEP0000000.cnf.xml",
-}
+
+SIP_CONF: Path = ETC_ASTERISK / "sip.conf"
+EXTENSIONS_CONF: Path = ETC_ASTERISK / "extensions.conf"
+VOICEMAIL_CONF: Path = ETC_ASTERISK / "voicemail.conf"
+XML_TEMPLATE: Path = TFTPBOOT / "SEP0000000.cnf.xml"
+REQUIRED_FILES: tuple[Path, ...] = (
+    SIP_CONF,
+    EXTENSIONS_CONF,
+    VOICEMAIL_CONF,
+    XML_TEMPLATE,
+)
 
 SIP_CONF_BACKUP_BASE: Path = ETC_ASTERISK / "backup" / "sip.conf.bak"
 

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cli import read_mac_addr
-from config import REQUIRED_FILES, TFTPBOOT, log
+from config import EXTENSIONS_CONF, SIP_CONF, TFTPBOOT, log
 
 MatchRule = Callable[[str, str], bool]
 
@@ -116,8 +116,8 @@ def search_for_mac_address(mac_address: str | None = None) -> list[MACMatch]:
         mac_address = read_mac_addr()
 
     scan_tasks: list[tuple[Path, MatchRule]] = [
-        (REQUIRED_FILES["SIP_CONF"], _is_sip_match),
-        (REQUIRED_FILES["EXTENSIONS_CONF"], _is_extensions_match),
+        (SIP_CONF, _is_sip_match),
+        (EXTENSIONS_CONF, _is_extensions_match),
     ]
 
     all_matches: list[MACMatch] = []

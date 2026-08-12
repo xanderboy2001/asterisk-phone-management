@@ -5,7 +5,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cli import read_extension
-from config import REQUIRED_FILES, TFTPBOOT, log
+from config import (
+    EXTENSIONS_CONF,
+    SIP_CONF,
+    TFTPBOOT,
+    VOICEMAIL_CONF,
+    log,
+)
 
 MatchRule = Callable[[str, str], bool]
 
@@ -124,9 +130,9 @@ def search_for_extension(extension: str | None = None) -> list[ExtensionMatch]:
         extension = read_extension()
 
     scan_tasks: list[tuple[Path, MatchRule]] = [
-        (REQUIRED_FILES["SIP_CONF"], _is_sip_match),
-        (REQUIRED_FILES["EXTENSIONS_CONF"], _is_extensions_match),
-        (REQUIRED_FILES["VOICEMAIL_CONF"], _is_voicemail_match),
+        (SIP_CONF, _is_sip_match),
+        (EXTENSIONS_CONF, _is_extensions_match),
+        (VOICEMAIL_CONF, _is_voicemail_match),
     ]
 
     all_matches: list[ExtensionMatch] = []

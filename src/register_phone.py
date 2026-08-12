@@ -13,7 +13,14 @@ from cli import (
     read_mac_addr,
     read_name,
 )
-from config import REQUIRED_FILES, TFTPBOOT, console, log
+from config import (
+    EXTENSIONS_CONF,
+    SIP_CONF,
+    TFTPBOOT,
+    XML_TEMPLATE,
+    console,
+    log,
+)
 from helpers import backup_config_file, copy_file_safe, safe_exit
 from reload_asterisk import reload_asterisk
 from search_for_extension import search_for_extension
@@ -88,10 +95,9 @@ def generate_cnf_xml(extension: str, mac_address: str) -> None:
         extension: The extension of the new phone.
         mac_address: The MAC address of the new phone.
     """
-    cnf_xml_template: Path = REQUIRED_FILES["XML_TEMPLATE"]
     new_cnf_xml: Path = TFTPBOOT / f"SEP{mac_address}.cnf.xml"
 
-    copy_file_safe(src=cnf_xml_template, dst=new_cnf_xml)
+    copy_file_safe(src=XML_TEMPLATE, dst=new_cnf_xml)
 
     _patch_cnf_xml(
         file_path=new_cnf_xml,
@@ -134,32 +140,30 @@ def _write_provisioning_files(
     created_files: list[Path],
     backups: dict[Path, Path],
 ) -> None:
-    ext_conf = REQUIRED_FILES["EXTENSIONS_CONF"]
-    sip_conf: Path = REQUIRED_FILES["SIP_CONF"]
 
     cnf_path = TFTPBOOT / f"SEP{phone.mac_address}.cnf.xml"
     generate_cnf_xml(extension=phone.extension, mac_address=phone.mac_address)
     created_files.append(cnf_path)
 
-    backups[sip_conf] = backup_config_file(sip_conf)
+    backups[SIP_CONF] = backup_config_file(SIP_CONF)
     patch_file(
-        sip_conf,
+        SIP_CONF,
         f"\n[SEP{phone.mac_address}](phone)\n"
         f"authname=SEP{phone.mac_address}\n"
         f"secret=SEP{phone.mac_address}\n"
         f"caller_id={phone.caller_id}\n\n",
     )
 
-    backups[ext_conf] = backup_config_file(ext_conf)
+    backups[EXTENSIONS_CONF] = backup_config_file(EXTENSIONS_CONF)
     patch_file(
-        ext_conf,
+        EXTENSIONS_CONF,
         f"exten => {phone.extension}"
         f",1,Dial(SIP/SEP{phone.mac_address},14,t)\n",
     )
 
     if voicemail:
         patch_file(
-            ext_conf,
+            EXTENSIONS_CONF,
             f"exten => {phone.extension},n,Voicemail({phone.extension},u)\n",
         )
 
