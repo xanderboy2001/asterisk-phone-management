@@ -102,6 +102,10 @@ def main() -> None:
         message="Choose and option:", choices=MENU_OPTIONS
     ).ask()
 
+    if selected is None:
+        log.error("User cancelled prompt")
+        return
+
     for function in selected:
         function()
 
