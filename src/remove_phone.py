@@ -11,6 +11,7 @@ from rich.table import Table
 from cli import read_extension, read_mac_addr
 from config import REQUIRED_FILES, TFTPBOOT, console, log
 from helpers import backup_config_file, safe_exit
+from reload_asterisk import reload_asterisk
 from search_for_extension import ExtensionMatch, search_for_extension
 from search_for_mac_address import MACMatch, search_for_mac_address
 
@@ -218,3 +219,4 @@ def remove_phone() -> None:
 
 if __name__ == "__main__":
     remove_phone()
+    reload_asterisk()

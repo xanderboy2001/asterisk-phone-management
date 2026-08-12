@@ -9,6 +9,7 @@ from questionary import Choice
 
 from config import REQUIRED_FILES, log
 from register_phone import register_phone
+from reload_asterisk import reload_asterisk
 from remove_phone import remove_phone
 from search_for_extension import search_for_extension
 from search_for_mac_address import search_for_mac_address
@@ -17,22 +18,22 @@ MENU_OPTIONS: list[Choice] = [
     Choice(
         title="Search for Extension",
         description="Search config and xml files for a given extension.",
-        value=search_for_extension,
+        value=[search_for_extension],
     ),
     Choice(
         title="Search for MAC Address",
         description="Search config and xml files for a given MAC address.",
-        value=search_for_mac_address,
+        value=[search_for_mac_address],
     ),
     Choice(
         title="Register Phone",
         description="Register a new phone.",
-        value=register_phone,
+        value=[register_phone, reload_asterisk],
     ),
     Choice(
         title="Delete Phone",
         description="Remove/deregister phone.",
-        value=remove_phone,
+        value=[remove_phone, reload_asterisk],
     ),
 ]
 
@@ -97,8 +98,8 @@ def main() -> None:
         message="Choose and option:", choices=MENU_OPTIONS
     ).ask()
 
-    if selected:
-        selected()
+    for function in selected:
+        function()
 
 
 if __name__ == "__main__":

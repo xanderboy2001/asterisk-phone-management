@@ -15,6 +15,7 @@ from cli import (
 )
 from config import REQUIRED_FILES, TFTPBOOT, console, log
 from helpers import backup_config_file, copy_file_safe, safe_exit
+from reload_asterisk import reload_asterisk
 from search_for_extension import search_for_extension
 from search_for_mac_address import search_for_mac_address
 
@@ -225,3 +226,4 @@ def register_phone() -> None:
 
 if __name__ == "__main__":
     register_phone()
+    reload_asterisk()
