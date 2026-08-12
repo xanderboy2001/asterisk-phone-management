@@ -8,6 +8,7 @@ import questionary
 from questionary import Choice
 
 from config import REQUIRED_FILES, log
+from edit_files import edit_files
 from register_phone import register_phone
 from reload_asterisk import reload_asterisk
 from remove_phone import remove_phone
@@ -34,6 +35,11 @@ MENU_OPTIONS: list[Choice] = [
         title="Delete Phone",
         description="Remove/deregister phone.",
         value=[remove_phone, reload_asterisk],
+    ),
+    Choice(
+        title="Edit System Files",
+        description="Edit an Asterisk config file.",
+        value=[edit_files],
     ),
 ]
 
