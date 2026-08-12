@@ -12,6 +12,7 @@ from edit_files import edit_files
 from register_phone import register_phone
 from reload_asterisk import reload_asterisk
 from remove_phone import remove_phone
+from reset_vm_password import reset_vm_password
 from search_for_extension import search_for_extension
 from search_for_mac_address import search_for_mac_address
 
@@ -48,6 +49,11 @@ MENU_OPTIONS: list[Choice] = [
         title="Edit System Files",
         description="Edit an Asterisk config file.",
         value=[edit_files],
+    ),
+    Choice(
+        title="Reset Voicemail Password",
+        description="Reset a voicemail box password.",
+        value=[reset_vm_password, reload_asterisk],
     ),
     Choice(
         title="Exit",

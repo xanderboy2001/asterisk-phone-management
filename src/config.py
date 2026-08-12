@@ -12,6 +12,7 @@ from rich.logging import RichHandler
 
 MAC_ADDRESS_LENGTH: int = 12
 EXTENSION_LENGTH: int = 4
+MINIMUM_VM_PASSWORD_LENGTH: int = 4
 
 # ETC_ASTERISK: Path = Path("/etc/asterisk")
 ETC_ASTERISK: Path = Path(Path(__file__).parent.parent / "config" / "asterisk")
@@ -29,8 +30,6 @@ REQUIRED_FILES: tuple[Path, ...] = (
     VOICEMAIL_CONF,
     XML_TEMPLATE,
 )
-
-SIP_CONF_BACKUP_BASE: Path = ETC_ASTERISK / "backup" / "sip.conf.bak"
 
 
 _LOG_FORMAT: str = "%(message)s"
