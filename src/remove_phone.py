@@ -1,7 +1,5 @@
 """Removes/deregisters a CISCO Phone from the Asterisk PBX phone system."""
 
-import re
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import questionary
@@ -17,50 +15,15 @@ from config import (
     console,
     log,
 )
-from helpers import backup_config_file, safe_exit
+from helpers import (
+    backup_config_file,
+    get_ext_from_mac,
+    get_mac_from_ext,
+    safe_exit,
+)
 from reload_asterisk import reload_asterisk
 from search_for_extension import ExtensionMatch, search_for_extension
 from search_for_mac_address import MACMatch, search_for_mac_address
-
-
-def _get_mac_from_ext(matches: list[ExtensionMatch]) -> str:
-    for match in matches:
-        if match.file_path.name == "extensions.conf":
-            mac_match = re.search(
-                pattern=r"SIP/SEP([A-Fa-f0-9]{12})", string=match.matched_text
-            )
-            if mac_match:
-                return mac_match.group(1).upper()
-        elif match.file_path.name == "sip.conf":
-            mac_match = re.search(f"SEP([A-Fa-f0-9]{12})", match.matched_text)
-            if mac_match:
-                return mac_match.group(1).upper()
-        elif match.file_path.suffixes == [".cnf", ".xml"]:
-            xml_root = ET.parse(match.file_path).getroot()
-            name_element = xml_root.find(".//name")
-            if name_element is not None and name_element.text:
-                return name_element.text.upper()
-
-    log.error("Could not determine MAC address from extension number!")
-    raise SystemExit
-
-
-def _get_ext_from_mac(matches: list[MACMatch]) -> str:
-    for match in matches:
-        if match.file_path.suffixes == [".cnf", ".xml"]:
-            xml_root: ET.Element = ET.parse(match.file_path).getroot()
-            extension_element: ET.Element[str] | None = xml_root.find(
-                path=".//featureLabel"
-            )
-            if extension_element is not None and extension_element.text:
-                return extension_element.text
-        elif match.file_path.name == "extensions.conf":
-            ext_match = re.search(r"exten\s*=>\s*(\d{4})", match.matched_text)
-            if ext_match:
-                return ext_match.group(1)
-
-    log.error("Could not determine extension from MAC address!")
-    raise SystemExit
 
 
 def print_phone_information(extension: str, mac_address: str) -> None:
@@ -199,13 +162,13 @@ def remove_phone() -> None:
         found = search_for_extension(extension)
         if not found:
             return
-        mac_address = _get_mac_from_ext(matches=found)
+        mac_address = get_mac_from_ext(matches=found)
     elif search_method == "mac":
         mac_address = read_mac_addr()
         found = search_for_mac_address(mac_address)
         if not found:
             return
-        extension = _get_ext_from_mac(matches=found)
+        extension = get_ext_from_mac(matches=found)
 
     print_phone_information(extension, mac_address)
 

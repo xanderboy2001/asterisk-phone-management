@@ -1,13 +1,17 @@
 """Helper functions."""
 
+import re
 import shutil
 import sys
+import xml.etree.ElementTree as ET
 from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from config import TFTPBOOT, log
+from search_for_extension import ExtensionMatch
+from search_for_mac_address import MACMatch
 
 
 def copy_file_safe(src: Path, dst: Path) -> None:
@@ -98,3 +102,65 @@ def safe_exit(
                     log.error("Failed to restore '%s': %s", original_path, e)
 
     sys.exit(exit_code)
+
+
+def get_mac_from_ext(matches: list[ExtensionMatch]) -> str:
+    """Determines the MAC address from a list of extension matches.
+
+    Args:
+        matches: List of ExtensionMatch objects.
+
+    Returns:
+        The MAC address string in uppercase.
+
+    Raises:
+        SystemExit: If no MAC address can be determined.
+    """
+    for match in matches:
+        if match.file_path.name == "extensions.conf":
+            mac_match = re.search(
+                pattern=r"SIP/SEP([A-Fa-f0-9]{12})", string=match.matched_text
+            )
+            if mac_match:
+                return mac_match.group(1).upper()
+        elif match.file_path.name == "sip.conf":
+            mac_match = re.search(f"SEP([A-Fa-f0-9]{12})", match.matched_text)
+            if mac_match:
+                return mac_match.group(1).upper()
+        elif match.file_path.suffixes == [".cnf", ".xml"]:
+            xml_root = ET.parse(match.file_path).getroot()
+            name_element = xml_root.find(".//name")
+            if name_element is not None and name_element.text:
+                return name_element.text.upper()
+
+    log.error("Could not determine MAC address from extension number!")
+    raise SystemExit(1)
+
+
+def get_ext_from_mac(matches: list[MACMatch]) -> str:
+    """Determine the extension from a list of MAC matches.
+
+    Args:
+        matches: List of MACMatch objects.
+
+    Returns:
+        The extension as a string.
+
+    Raises:
+        SystemExit: If no extension can be determined.
+    """
+    for match in matches:
+        if match.file_path.suffixes == [".cnf", ".xml"]:
+            xml_root: ET.Element = ET.parse(match.file_path).getroot()
+            extension_element: ET.Element[str] | None = xml_root.find(
+                path=".//featureLabel"
+            )
+            if extension_element is not None and extension_element.text:
+                return extension_element.text
+        elif match.file_path.name == "extensions.conf":
+            ext_match = re.search(r"exten\s*=>\s*(\d{4})", match.matched_text)
+            if ext_match:
+                return ext_match.group(1)
+
+    log.error("Could not determine extension from MAC address!")
+    raise SystemExit(1)
