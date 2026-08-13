@@ -43,7 +43,9 @@ def edit_files() -> None:
     ]
 
     selected_file = questionary.select(
-        message="Choose a file to edit", choices=file_choices
+        message="Choose a file to edit",
+        choices=file_choices,
+        use_shortcuts=True,
     ).ask()
 
     if selected_file is None:
