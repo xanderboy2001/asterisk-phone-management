@@ -13,6 +13,7 @@ from reboot_phone import reboot_phone
 from register_phone import register_phone
 from reload_asterisk import reload_asterisk
 from remove_phone import remove_phone
+from replace_phone import replace_phone
 from reset_vm_password import reset_vm_password
 from search_for_extension import search_for_extension
 from search_for_mac_address import search_for_mac_address
@@ -60,6 +61,11 @@ MENU_OPTIONS: list[Choice] = [
         title="Reboot Phone",
         description="Reboot a phone.",
         value=[reboot_phone],
+    ),
+    Choice(
+        title="Replace Phone",
+        description="Replace a physical phone.",
+        value=[replace_phone, reload_asterisk],
     ),
     Choice(
         title="Exit",
