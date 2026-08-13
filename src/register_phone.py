@@ -17,6 +17,7 @@ from config import (
     EXTENSIONS_CONF,
     SIP_CONF,
     TFTPBOOT,
+    VOICEMAIL_CONF,
     XML_TEMPLATE,
     console,
     log,
@@ -111,7 +112,9 @@ def generate_cnf_xml(extension: str, mac_address: str) -> None:
     )
 
     _patch_cnf_xml(
-        file_path=new_cnf_xml, placeholder="--SEPMAC--", new_value=mac_address
+        file_path=new_cnf_xml,
+        placeholder="--SEPMAC--",
+        new_value=f"SEP{mac_address}",
     )
     log.debug(
         "Patched MAC address '%s' into new .cnf.xml file '%s'.",
@@ -165,6 +168,11 @@ def _write_provisioning_files(
         patch_file(
             EXTENSIONS_CONF,
             f"exten => {phone.extension},n,Voicemail({phone.extension},u)\n",
+        )
+        patch_file(
+            VOICEMAIL_CONF,
+            f"{phone.extension} = {phone.extension}, {voicemail.name}, "
+            f"{voicemail.email},,attach=yes|delete=1",
         )
 
 
