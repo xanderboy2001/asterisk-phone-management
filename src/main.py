@@ -17,6 +17,7 @@ from replace_phone import replace_phone
 from reset_vm_password import reset_vm_password
 from search_for_extension import search_for_extension
 from search_for_mac_address import search_for_mac_address
+from view_active_calls import view_active_calls
 
 MENU_OPTIONS: list[Choice] = [
     Choice(
@@ -67,6 +68,7 @@ MENU_OPTIONS: list[Choice] = [
         description="Replace a physical phone.",
         value=[replace_phone, reload_asterisk],
     ),
+    Choice(title="View Active Calls", value=[view_active_calls]),
     Choice(
         title="Exit",
         description="Exit the program.",
