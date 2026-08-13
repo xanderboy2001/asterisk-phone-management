@@ -14,6 +14,9 @@ MAC_ADDRESS_LENGTH: int = 12
 EXTENSION_LENGTH: int = 4
 MINIMUM_VM_PASSWORD_LENGTH: int = 4
 
+PHONE_SSH_USER: str = "admin"
+PHONE_SSH_PASS: str = "cisco"
+
 # ETC_ASTERISK: Path = Path("/etc/asterisk")
 ETC_ASTERISK: Path = Path(Path(__file__).parent.parent / "config" / "asterisk")
 # TFTPBOOT: Path = Path("/var/lib/tftpboot")

@@ -9,6 +9,7 @@ from questionary import Choice
 
 from config import REQUIRED_FILES, console, log
 from edit_files import edit_files
+from reboot_phone import reboot_phone
 from register_phone import register_phone
 from reload_asterisk import reload_asterisk
 from remove_phone import remove_phone
@@ -54,6 +55,11 @@ MENU_OPTIONS: list[Choice] = [
         title="Reset Voicemail Password",
         description="Reset a voicemail box password.",
         value=[reset_vm_password, reload_asterisk],
+    ),
+    Choice(
+        title="Reboot Phone",
+        description="Reboot a phone.",
+        value=[reboot_phone],
     ),
     Choice(
         title="Exit",
