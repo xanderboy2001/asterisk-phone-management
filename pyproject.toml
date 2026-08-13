@@ -5,7 +5,7 @@ description = "A Python module to manage the Asterisk Phone system."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "paramiko>=5.0.0",
+    "pexpect>=4.9.0",
     "questionary>=2.1.1",
     "rich>=15.0.0",
 ]

@@ -2,9 +2,8 @@
 
 import re
 import subprocess
-import time
 
-import paramiko
+import pexpect
 
 from cli import read_extension
 from config import PHONE_SSH_PASS, PHONE_SSH_USER, log
@@ -50,74 +49,64 @@ def get_ip_address(mac_address: str) -> str:
     return ip_address
 
 
-def _send_reboot_sequence(client: paramiko.SSHClient) -> None:
-    shell = client.invoke_shell()
-    time.sleep(0.5)
+def _send_reboot_command(child: pexpect.spawn, password: str) -> None:
+    child.expect("password:")
+    child.sendline(password)
 
-    commands: list[tuple[bytes, float]] = [
-        (b"debug\n", 0.5),
-        (b"debug\n", 0.5),
-        (b"reboot\n", 1.0),
-    ]
+    child.expect("login:")
+    child.sendline("debug")
 
-    for cmd, delay in commands:
-        shell.send(cmd)
-        time.sleep(delay)
+    child.expect("Password:")
+    child.sendline("debug")
+
+    child.expect("DEBUG>")
+    child.sendline("reboot")
+
+    child.expect(pexpect.EOF)
 
 
 def invoke_phone_reboot(
     ip_address: str, username: str, password: str, timeout: int = 5
 ) -> bool:
-    """Invoke a reboot on a phone by its IP address and credentials.
+    """Reboot a Cisco IP phone by automating system SSH via pexpect.
+
+    Connects to the phone using the system's native SSH binary, handles the
+    two-stage Cisco debug prompt sequence (Username: debug / Password: debug),
+    and issues the reboot command.
+
 
     Args:
-        ip_address: The IP address of the phone.
-        username: The SSH username for the phone.
-        password: The SSH password for the phone.
-        timeout: The connection timeout in seconds. Defaults to 5.
+        ip_address: The target phone's IP address.
+        username: The initial SSH username (e.g., 'admin')
+        password: The initial SSH password.
+        timeout: Maximum time in seconds to wait for each prompt.
+            Defaults to 10.
+
 
     Returns:
-        True if the reboot signal was sent successfully, False otherwise.
+        True if the reboot command was Successfully sent and acknowledged,
+        False if authentication failed, a prompt timed out,
+            or process spawn failed.
     """
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh_cmd = f"ssh -t {username}@{ip_address}"
 
+    log.info("Connecting to %s via SSH...", ip_address)
     try:
-        log.info("Connecting to %s...", ip_address)
-        client.connect(
-            hostname=ip_address,
-            username=username,
-            password=password,
-            timeout=timeout,
-            banner_timeout=timeout,
-            auth_timeout=timeout,
-            disabled_algorithms={
-                "pubkeys": [],
-                "kex": [],
-                "ciphers": [],
-            },
+        child: pexpect.spawn = pexpect.spawn(
+            command=ssh_cmd, encoding="utf-8", timeout=timeout
         )
-        _send_reboot_sequence(client)
-    except (paramiko.SSHException, OSError) as e:
-        if any(
-            err in str(e)
-            for err in [
-                "Software caused connection abort",
-                "Connection reset",
-                "EOF",
-            ]
-        ):
-            log.info(
-                "Reboot signal sent successfully; host closed connection."
-            )
-            return True
-        log.error("SSH error on %s: %s", ip_address, e)
-        return False
-    finally:
-        client.close()
+        _send_reboot_command(child, password)
 
-    log.info("successfully sent reboot command to %s", ip_address)
-    return True
+        log.info("Successfully sent reboot command to %s", ip_address)
+        return True
+    except (pexpect.TIMEOUT, pexpect.EOF):
+        log.info(
+            "Reboot signal sent to %s (connection closed by host).", ip_address
+        )
+        return True
+    except (pexpect.ExceptionPexpect, OSError) as e:
+        log.error("Failed to reboot phone via SSH: %s", e)
+        return False
 
 
 def reboot_phone() -> None:
