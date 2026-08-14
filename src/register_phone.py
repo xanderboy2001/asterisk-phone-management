@@ -148,14 +148,20 @@ def _write_provisioning_files(
     generate_cnf_xml(extension=phone.extension, mac_address=phone.mac_address)
     created_files.append(cnf_path)
 
-    backups[SIP_CONF] = backup_config_file(SIP_CONF)
-    patch_file(
-        SIP_CONF,
+    sip_content: str = (
         f"\n[SEP{phone.mac_address}](phone)\n"
         f"authname=SEP{phone.mac_address}\n"
         f"secret=SEP{phone.mac_address}\n"
-        f"caller_id={phone.caller_id}\n\n",
+        f"caller_id={phone.caller_id}\n"
     )
+
+    if voicemail:
+        sip_content += f"mailbox={phone.extension}@default\n"
+
+    sip_content += "\n"
+
+    backups[SIP_CONF] = backup_config_file(SIP_CONF)
+    patch_file(SIP_CONF, sip_content)
 
     backups[EXTENSIONS_CONF] = backup_config_file(EXTENSIONS_CONF)
     patch_file(
