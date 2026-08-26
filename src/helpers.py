@@ -101,7 +101,7 @@ def get_mac_from_ext(matches: list[ConfigMatch]) -> str:
             xml_root = ET.parse(match.file_path).getroot()
             name_element = xml_root.find(".//name")
             if name_element is not None and name_element.text:
-                return name_element.text.upper()
+                return name_element.text.upper().removeprefix("SEP")
 
     msg = "Could not determine MAC address from extension number!"
     log.error(msg)

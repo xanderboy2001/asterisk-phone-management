@@ -1,0 +1,186 @@
+"""Unit tests for interactive CLI prompts."""
+
+from pathlib import Path
+
+import pytest
+from pytest_mock import MockerFixture
+
+from src.cli.prompts import (
+    _log_results,
+    prompt_search_extension,
+    prompt_search_mac,
+    prompt_search_method,
+    prompt_use_voicemail,
+    read_caller_id,
+    read_email,
+    read_extension,
+    read_mac_addr,
+    read_name,
+    read_new_password,
+)
+from src.core.exceptions import AsteriskCliError
+from src.schemas.models import ConfigMatch
+
+
+def test_log_results_empty(mocker: MockerFixture) -> None:
+    mock_log_warn = mocker.patch("src.cli.prompts.log.warning")
+
+    _log_results([], "1001")
+    mock_log_warn.assert_called_once_with("No references found for %s", "1001")
+
+
+def test_log_results_populated(tmp_path: Path, mocker: MockerFixture) -> None:
+    mock_log_info = mocker.patch("src.cli.prompts.log.info")
+    matches = [
+        ConfigMatch(
+            file_path=tmp_path / "sip.conf",
+            line_number=5,
+            matched_text="matched_data",
+        )
+    ]
+    _log_results(matches, "1001")
+    mock_log_info.assert_called_once()
+
+
+def test_prompt_search_extension(mocker: MockerFixture) -> None:
+    mocker.patch("src.cli.prompts.read_extension", return_value="1001")
+    mock_search = mocker.patch(
+        "src.cli.prompts.search_for_extension", return_value=[]
+    )
+    mock_log = mocker.patch("src.cli.prompts._log_results")
+
+    prompt_search_extension()
+
+    mock_search.assert_called_once_with("1001")
+    mock_log.assert_called_once_with([], "1001")
+
+
+def test_prompt_search_mac(mocker: MockerFixture) -> None:
+    mocker.patch("src.cli.prompts.read_mac_addr", return_value="AABBCCDDEEFF")
+    mock_search = mocker.patch(
+        "src.cli.prompts.search_for_mac_address", return_value=[]
+    )
+    mock_log = mocker.patch("src.cli.prompts._log_results")
+
+    prompt_search_mac()
+    mock_search.assert_called_once_with("AABBCCDDEEFF")
+    mock_log.assert_called_once_with([], "AABBCCDDEEFF")
+
+
+def test_read_extension_success(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+    mock_text.return_value.ask.return_value = "1234"
+
+    assert read_extension() == "1234"
+
+
+def test_read_extension_cancelled(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+    mock_text.return_value.ask.return_value = None
+
+    with pytest.raises(KeyboardInterrupt, match="Prompt cancelled by user"):
+        read_extension()
+
+
+def test_read_mac_addr_normalization(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+    mock_text.return_value.ask.return_value = "aa:bb:cc:dd:ee:ff"
+
+    assert read_mac_addr() == "AABBCCDDEEFF"
+
+
+def test_read_mac_addr_cancelled(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+    mock_text.return_value.ask.return_value = None
+    with pytest.raises(KeyboardInterrupt, match="Prompt cancelled by user"):
+        read_mac_addr()
+
+
+def test_read_caller_id_formatting(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+
+    mock_text.return_value.ask.return_value = '"John Doe"'
+    assert read_caller_id("1001") == '"John Doe" <1001>'
+
+    mock_text.return_value.ask.return_value = '"John Doe" <1001>'
+    assert read_caller_id("1001") == '"John Doe" <1001>'
+
+
+def test_read_caller_id_cancelled(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+    mock_text.return_value.ask.return_value = None
+
+    with pytest.raises(KeyboardInterrupt, match="Prompt cancelled by user"):
+        read_caller_id("1001")
+
+
+def test_read_name_success(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+    mock_text.return_value.ask.return_value = "  Jane Doe  "
+    assert read_name() == "Jane Doe"
+
+
+def test_read_name_cancelled(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+    mock_text.return_value.ask.return_value = None
+
+    with pytest.raises(KeyboardInterrupt, match="Prompt cancelled by user"):
+        read_name()
+
+
+def test_read_email_success(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+    mock_text.return_value.ask.return_value = "  jane@example.com  "
+    assert read_email() == "jane@example.com"
+
+
+def test_read_email_cancelled(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+    mock_text.return_value.ask.return_value = None
+
+    with pytest.raises(KeyboardInterrupt, match="Prompt cancelled by user"):
+        read_email()
+
+
+def test_read_new_password_empty_raises_error(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+    mock_text.return_value.ask.return_value = ""
+
+    with pytest.raises(AsteriskCliError, match="No password provided"):
+        read_new_password("1001")
+
+
+def test_prompt_search_method_success(mocker: MockerFixture) -> None:
+    mock_select = mocker.patch("questionary.select")
+    mock_select.return_value.ask.return_value = "ext"
+
+    assert prompt_search_method() == "ext"
+
+
+def test_prompt_search_method_cancelled(mocker: MockerFixture) -> None:
+    mock_select = mocker.patch("questionary.select")
+    mock_select.return_value.ask.return_value = None
+
+    with pytest.raises((AsteriskCliError, KeyboardInterrupt)):
+        prompt_search_method()
+
+
+def test_prompt_use_voicemail_bool(mocker: MockerFixture) -> None:
+    mock_confirm = mocker.patch("questionary.confirm")
+    mock_confirm.return_value.ask.return_value = True
+
+    assert prompt_use_voicemail() is True
+
+
+def test_prompt_use_voicemail_cancelled(mocker: MockerFixture) -> None:
+    mock_confirm = mocker.patch("questionary.confirm")
+    mock_confirm.return_value.ask.side_effect = KeyboardInterrupt
+    with pytest.raises((AsteriskCliError, KeyboardInterrupt)):
+        prompt_use_voicemail()
+
+
+def test_prompt_use_voicemail_cancelled_none(mocker: MockerFixture) -> None:
+    mock_confirm = mocker.patch("questionary.confirm")
+    mock_confirm.return_value.ask.return_value = None
+    result = prompt_use_voicemail()
+    assert result is None

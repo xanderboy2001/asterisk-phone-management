@@ -60,7 +60,7 @@ def _get_ip_address(mac_address: str) -> str:
     return ip_address
 
 
-def _send_reboot_command(child: pexpect.spawn, password: str) -> None:
+def _send_reboot_command(child: "pexpect.spawn[str]", password: str) -> None:
     """Send SSH debug authentication and reboot commands to a Cisco IP phone.
 
     Args:
@@ -109,7 +109,7 @@ def _invoke_phone_reboot(
 
     log.info("Connecting to %s via SSH...", ip_address)
     try:
-        child: pexpect.spawn = pexpect.spawn(
+        child: pexpect.spawn[str] = pexpect.spawn(
             command=ssh_cmd, encoding="utf-8", timeout=timeout
         )
         _send_reboot_command(child, password)
