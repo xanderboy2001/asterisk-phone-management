@@ -8,7 +8,9 @@ from pathlib import Path
 import questionary
 from questionary import Choice
 
-from config import EXTENSIONS_CONF, SIP_CONF, VOICEMAIL_CONF, log
+from src.core.exceptions import AsteriskCliError, FileTransactionError
+from src.core.globals import EXTENSIONS_CONF, SIP_CONF, VOICEMAIL_CONF, log
+from src.core.transactions import ConfigTransaction
 
 
 def get_editor() -> str | None:
@@ -24,9 +26,16 @@ def get_editor() -> str | None:
 
 
 def edit_files() -> None:
-    """Prompt user to select a configuration file and opens it in an editor."""
-    selected_file: Path | None = None
+    """Prompt user to select a configuration file and open it in an editor.
 
+    The selected file is backed up before editing and rolled back if the
+    editor exits with a non-zero status.
+
+    Raises:
+        AsteriskCliError: If no valid editor could be found.
+        FileTransactionError: If the editor exits with a non-zero status
+            or otherwise fails to run.
+    """
     file_choices: list[Choice] = [
         Choice(
             title=SIP_CONF.name,
@@ -42,7 +51,7 @@ def edit_files() -> None:
         ),
     ]
 
-    selected_file = questionary.select(
+    selected_file: Path | None = questionary.select(
         message="Choose a file to edit",
         choices=file_choices,
         use_shortcuts=True,
@@ -54,10 +63,17 @@ def edit_files() -> None:
 
     editor = get_editor()
     if not editor:
+        msg = "No valid editor found!"
         log.error("No valid editor found!")
-        return
+        raise AsteriskCliError(msg)
 
-    subprocess.run([editor, str(selected_file)], check=True)
+    try:
+        with ConfigTransaction((selected_file,)):
+            subprocess.run([editor, str(selected_file)], check=True)
+    except (subprocess.CalledProcessError, OSError) as e:
+        msg = f"Editor session for {selected_file.name} failed: {e}"
+        log.error(msg)
+        raise FileTransactionError(msg) from e
 
 
 if __name__ == "__main__":

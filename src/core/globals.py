@@ -5,6 +5,7 @@ configuration used across the Asterisk phone management tool.
 """
 
 import logging
+import os
 from pathlib import Path
 
 from rich.console import Console
@@ -14,13 +15,25 @@ MAC_ADDRESS_LENGTH: int = 12
 EXTENSION_LENGTH: int = 4
 MINIMUM_VM_PASSWORD_LENGTH: int = 4
 
-PHONE_SSH_USER: str = "admin"
-PHONE_SSH_PASS: str = "cisco"
+# Default Cisco factory credentials, overridable via environment variables
+PHONE_SSH_USER: str = os.environ.get("ASTERISK_CLI_PHONE_SSH_USER", "admin")
+PHONE_SSH_PASS: str = os.environ.get("ASTERISK_CLI_PHONE_SSH_PASS", "cisco")
 
-# ETC_ASTERISK: Path = Path("/etc/asterisk")
-ETC_ASTERISK: Path = Path(Path(__file__).parent.parent / "config" / "asterisk")
-# TFTPBOOT: Path = Path("/var/lib/tftpboot")
-TFTPBOOT: Path = Path(Path(__file__).parent.parent / "config" / "tftpboot")
+# Defaults target a local ./config sandbox for development; set
+# ASTERISK_CLI_ETC and ASTERISK_CLI_TFTPBOOT to point at the real
+# /etc/asterisk and /var/lib/tftpboot in production.
+ETC_ASTERISK: Path = Path(
+    os.environ.get(
+        "ASTERISK_CLI_ETC",
+        str(Path(__file__).parent.parent / "config" / "asterisk"),
+    )
+)
+TFTPBOOT: Path = Path(
+    os.environ.get(
+        "ASTERISK_CLI_TFTPBOOT",
+        str(Path(__file__).parent.parent / "config" / "tftpboot"),
+    )
+)
 # Required files + paths
 
 SIP_CONF: Path = ETC_ASTERISK / "sip.conf"

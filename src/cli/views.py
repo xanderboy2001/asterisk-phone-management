@@ -1,89 +1,47 @@
-"""Module for viewing active Asterisk calls in a live updating terminal UI.
+"""UI view rendering using Rich."""
 
-This script queries Asterisk for active channels and displays them
-using the rich library to provide a human-readable, auto-refreshing panel.
-"""
-
-import subprocess
 import time
-from dataclasses import dataclass
 
 from rich.align import Align
 from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 
-from config import console, log
+from src.core.globals import console, log
+from src.schemas.models import ActiveCall, Phone, Voicemail
+from src.services.device_actions import get_active_calls
 
-EXPECTED_FIELD_COUNT: int = 13
 
+def print_phone_table(
+    phone: Phone, voicemail: Voicemail | None = None
+) -> None:
+    """Print the information for a new phone in a Rich table.
 
-@dataclass
-class ActiveCall:
-    """Represents an active Asterisk channel mapped from 'concise' output.
-
-    Attributes:
-        channel: The channel name.
-        context: The current context.
-        extension: The current extension.
-        priority: The current priority.
-        state: The state of the channel.
-        application: The current application.
-        data: Data passed to the application.
-        caller_id_num: The Caller ID number.
-        caller_id_name: The Caller ID name.
-        account_code: The account code.
-        ama_flags: The AMA flags.
-        duration: Call duration in seconds.
-        bridged_channel: The channel this is bridged to.
+    Args:
+        phone: Phone dataclass containing extension, MAC, and caller ID.
+        voicemail: Optional Voicemail dataclass containing name and email.
     """
+    table = Table(title="Phone Information")
 
-    channel: str
-    context: str
-    extension: str
-    priority: str
-    state: str
-    application: str
-    data: str
-    caller_id_num: str
-    caller_id_name: str
-    account_code: str
-    ama_flags: str
-    duration: str
-    bridged_channel: str
+    table.add_column(header="Extension")
+    table.add_column(header="MAC Address")
+    row_values: list[str] = [phone.extension, phone.mac_address]
 
+    if phone.caller_id:
+        table.add_column(header="Caller ID")
+        row_values.append(phone.caller_id)
 
-def get_active_calls() -> list[ActiveCall]:
-    """Fetch active calls from Asterisk and parse them into dataclasses.
+    if voicemail:
+        table.add_column(header="Voicemail Name")
+        table.add_column(header="Voicemail Email")
+        row_values.extend([voicemail.name, voicemail.email])
 
-    Returns:
-        list[ActiveCall]: A list of active calls. Returns an empty list if
-        Asterisk is unreachable or not installed.
-    """
-    try:
-        result = subprocess.run(
-            ["asterisk", "-rx", "core show channels concise"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return []
+    table.add_row(*row_values)
 
-    calls = []
-    for line in result.stdout.strip().split("\n"):
-        if not line:
-            continue
-
-        parts = line.split("!")
-
-        if len(parts) >= EXPECTED_FIELD_COUNT:
-            calls.append(ActiveCall(*parts[:EXPECTED_FIELD_COUNT]))
-
-    return calls
+    console.print(table)
 
 
-def format_duration(seconds_str: str) -> str:
+def _format_duration(seconds_str: str) -> str:
     """Convert a string of raw seconds into a formatted time string.
 
     Args:
@@ -110,14 +68,14 @@ def format_duration(seconds_str: str) -> str:
     return f"{minutes:02d}:{seconds:02d}"
 
 
-def generate_table(calls: list[ActiveCall]) -> Table:
+def _generate_call_table(calls: list[ActiveCall]) -> Table:
     """Generate a Rich Table from a list of ActiveCall objects.
 
     Args:
         calls: A list of active call objects.
 
     Returns:
-        Table: A populated rich Table displaying the active calls.
+        A populated rich Table displaying the active calls.
     """
     table = Table(
         show_header=True,
@@ -144,7 +102,7 @@ def generate_table(calls: list[ActiveCall]) -> Table:
             if call.caller_id_name
             else call.caller_id_num
         )
-        human_duration = format_duration(call.duration)
+        human_duration = _format_duration(call.duration)
         table.add_row(
             call.channel,
             caller_id,
@@ -156,8 +114,8 @@ def generate_table(calls: list[ActiveCall]) -> Table:
     return table
 
 
-def render_panel() -> None:
-    """Initialize and runs the live auto-updating watcher for active calls.
+def _render_call_panel() -> None:
+    """Initialize and run the live auto-updating watcher for active calls.
 
     Create a live rich dashboard that polls Asterisk every second.
     """
@@ -165,7 +123,7 @@ def render_panel() -> None:
         while True:
             calls = get_active_calls()
 
-            table = generate_table(calls)
+            table = _generate_call_table(calls)
             panel = Panel(
                 Align.center(table),
                 title="[bold yellow]Active Asterisk Calls[/bold yellow]",
@@ -178,13 +136,8 @@ def render_panel() -> None:
 
 
 def view_active_calls() -> None:
-    """Main entry point for the script."""
+    """Watch and render active calls until the user exits."""
     try:
-        render_panel()
+        _render_call_panel()
     except KeyboardInterrupt:
         log.warning("User exited watcher.")
-        return
-
-
-if __name__ == "__main__":
-    view_active_calls()

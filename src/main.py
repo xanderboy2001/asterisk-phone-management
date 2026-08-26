@@ -7,17 +7,20 @@ from pathlib import Path
 import questionary
 from questionary import Choice
 
-from config import REQUIRED_FILES, console, log
-from edit_files import edit_files
-from reboot_phone import reboot_phone
-from register_phone import register_phone
-from reload_asterisk import reload_asterisk
-from remove_phone import remove_phone
-from replace_phone import replace_phone
-from reset_vm_password import reset_vm_password
-from search_for_extension import search_for_extension
-from search_for_mac_address import search_for_mac_address
-from view_active_calls import view_active_calls
+from src.cli.handlers import (
+    handle_reboot_phone,
+    handle_register_phone,
+    handle_remove_phone,
+    handle_replace_phone,
+    handle_reset_vm_password,
+    handle_search_for_extension,
+    handle_search_for_mac_address,
+)
+from src.cli.views import view_active_calls
+from src.core.exceptions import AsteriskCliError
+from src.core.globals import REQUIRED_FILES, console, log
+from src.edit_files import edit_files
+from src.services.device_actions import reload_asterisk
 
 MENU_OPTIONS: list[Choice] = [
     Choice(
@@ -26,49 +29,49 @@ MENU_OPTIONS: list[Choice] = [
             "Reload the Asterisk service to account "
             "for changes made to config files."
         ),
-        value=[reload_asterisk],
+        value=reload_asterisk,
     ),
     Choice(
         title="Search for Extension",
         description="Search config and xml files for a given extension.",
-        value=[search_for_extension],
+        value=handle_search_for_extension,
     ),
     Choice(
         title="Search for MAC Address",
         description="Search config and xml files for a given MAC address.",
-        value=[search_for_mac_address],
+        value=handle_search_for_mac_address,
     ),
     Choice(
         title="Register Phone",
         description="Register a new phone.",
-        value=[register_phone, reload_asterisk],
+        value=handle_register_phone,
     ),
     Choice(
         title="Delete Phone",
         description="Remove/deregister phone.",
-        value=[remove_phone, reload_asterisk],
+        value=handle_remove_phone,
     ),
     Choice(
         title="Edit System Files",
         description="Edit an Asterisk config file.",
-        value=[edit_files],
+        value=edit_files,
     ),
     Choice(
         title="Reset Voicemail Password",
         description="Reset a voicemail box password.",
-        value=[reset_vm_password, reload_asterisk],
+        value=handle_reset_vm_password,
     ),
     Choice(
         title="Reboot Phone",
         description="Reboot a phone.",
-        value=[reboot_phone],
+        value=handle_reboot_phone,
     ),
     Choice(
         title="Replace Phone",
         description="Replace a physical phone.",
-        value=[replace_phone, reload_asterisk],
+        value=handle_replace_phone,
     ),
-    Choice(title="View Active Calls", value=[view_active_calls]),
+    Choice(title="View Active Calls", value=view_active_calls),
     Choice(
         title="Exit",
         description="Exit the program.",
@@ -127,7 +130,11 @@ def ensure_required_paths() -> None:
 
 
 def main() -> None:
-    """Run the main application logic."""
+    """Run the main application logic.
+
+    Raises:
+        SystemExit: If any of the required files are not found.
+    """
     parsed_args = _parse_args()
     verbose: bool = parsed_args.verbose
 
@@ -135,7 +142,11 @@ def main() -> None:
         log.setLevel(logging.DEBUG)
         log.debug("Verbose logging enabled.")
 
-    ensure_required_paths()
+    try:
+        ensure_required_paths()
+    except FileNotFoundError as err:
+        log.error(str(err))
+        raise SystemExit(1) from err
 
     while True:
         selected = questionary.select(
@@ -147,10 +158,14 @@ def main() -> None:
         if selected is None or selected == "exit":
             break
 
-        for function in selected:
-            console.print()
-            function()
-            console.print()
+        console.print()
+        try:
+            selected()
+        except KeyboardInterrupt:
+            log.warning("Operation cancelled by user.")
+        except AsteriskCliError as err:
+            log.error("Operation failed: %s", err)
+        console.print()
 
 
 if __name__ == "__main__":
