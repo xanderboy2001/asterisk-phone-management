@@ -82,7 +82,3 @@ def edit_files() -> None:
         msg = f"Editor session for {selected_file.name} failed: {e}"
         log.error(msg)
         raise FileTransactionError(msg) from e
-
-
-if __name__ == "__main__":
-    edit_files()

@@ -100,7 +100,7 @@ def test_provision_phone_error_cleans_up(
     mocker: MockerFixture,
 ) -> None:
     mocker.patch(
-        "src.services.provisioning._patch_file",
+        "asterisk_phone_management.services.provisioning._patch_file",
         side_effect=OSError("Disk full"),
     )
     with pytest.raises(
@@ -126,7 +126,7 @@ def test_deprovision_phone_flow(mock_asterisk_env: dict[str, Path]) -> None:
 @pytest.mark.usefixtures("mock_asterisk_env")
 def test_deprovision_phone_os_error(mocker: MockerFixture) -> None:
     mocker.patch(
-        "src.services.provisioning._remove_sip_section",
+        "asterisk_phone_management.services.provisioning._remove_sip_section",
         side_effect=OSError("File system error"),
     )
 
@@ -152,7 +152,9 @@ def test_replace_mac_in_file_no_matches_warning(
 ) -> None:
     file_path = tmp_path / "sip.conf"
     file_path.write_text("no matching mac here", encoding="utf-8")
-    mock_log = mocker.patch("src.services.provisioning.log.warning")
+    mock_log = mocker.patch(
+        "asterisk_phone_management.services.provisioning.log.warning"
+    )
 
     _replace_mac_in_file(file_path, "112233445566", "AABBCCDDEEFF")
     mock_log.assert_called_once()
@@ -165,7 +167,9 @@ def test_register_phone_success(mocker: MockerFixture) -> None:
     )
     mock_confirm = mocker.patch("questionary.confirm")
     mock_confirm.return_value.ask.return_value = True
-    mock_provision = mocker.patch("src.services.provisioning._provision_phone")
+    mock_provision = mocker.patch(
+        "asterisk_phone_management.services.provisioning._provision_phone"
+    )
     register_phone(new_phone)
     mock_provision.assert_called_once_with(new_phone, None)
 
@@ -175,7 +179,9 @@ def test_register_phone_existing_extension(mocker: MockerFixture) -> None:
     existing_phone = Phone(
         extension="1001", mac_address="AABBCCDDEEFF", caller_id=""
     )
-    mock_provision = mocker.patch("src.services.provisioning._provision_phone")
+    mock_provision = mocker.patch(
+        "asterisk_phone_management.services.provisioning._provision_phone"
+    )
     register_phone(existing_phone)
     mock_provision.assert_not_called()
 
@@ -185,7 +191,9 @@ def test_register_phone_existing_mac(mocker: MockerFixture) -> None:
     existing_phone = Phone(
         extension="9999", mac_address="112233445566", caller_id=""
     )
-    mock_provision = mocker.patch("src.services.provisioning._provision_phone")
+    mock_provision = mocker.patch(
+        "asterisk_phone_management.services.provisioning._provision_phone"
+    )
 
     register_phone(existing_phone)
     mock_provision.assert_not_called()
@@ -200,7 +208,9 @@ def test_register_phone_prompt_retry_then_cancel(
     )
     mock_confirm = mocker.patch("questionary.confirm")
     mock_confirm.return_value.ask.side_effect = [None, False]
-    mock_provision = mocker.patch("src.services.provisioning._provision_phone")
+    mock_provision = mocker.patch(
+        "asterisk_phone_management.services.provisioning._provision_phone"
+    )
 
     register_phone(new_phone)
     mock_provision.assert_not_called()
@@ -210,7 +220,9 @@ def test_register_phone_prompt_retry_then_cancel(
 def test_remove_phone_by_mac_success(mocker: MockerFixture) -> None:
     mock_confirm = mocker.patch("questionary.confirm")
     mock_confirm.return_value.ask.return_value = True
-    mock_deprov = mocker.patch("src.services.provisioning._deprovision_phone")
+    mock_deprov = mocker.patch(
+        "asterisk_phone_management.services.provisioning._deprovision_phone"
+    )
 
     remove_phone("mac", "112233445566")
     mock_deprov.assert_called_once_with("1001", "112233445566")
@@ -242,7 +254,9 @@ def test_remove_phone_invalid_method() -> None:
 def test_remove_phone_user_cancels(mocker: MockerFixture) -> None:
     mock_confirm = mocker.patch("questionary.confirm")
     mock_confirm.return_value.ask.return_value = False
-    mock_deprov = mocker.patch("src.services.provisioning._deprovision_phone")
+    mock_deprov = mocker.patch(
+        "asterisk_phone_management.services.provisioning._deprovision_phone"
+    )
 
     remove_phone("ext", "1001")
 
@@ -252,9 +266,12 @@ def test_remove_phone_user_cancels(mocker: MockerFixture) -> None:
 @pytest.mark.usefixtures("mock_asterisk_env")
 def test_replace_phone_by_ext_success(mocker: MockerFixture) -> None:
     mocker.patch(
-        "src.services.provisioning.read_mac_addr", return_value="AABBCCDDEEFF"
+        "asterisk_phone_management.services.provisioning.read_mac_addr",
+        return_value="AABBCCDDEEFF",
     )
-    mock_generate = mocker.patch("src.services.provisioning._generate_cnf_xml")
+    mock_generate = mocker.patch(
+        "asterisk_phone_management.services.provisioning._generate_cnf_xml"
+    )
     replace_phone("ext", "1001")
     mock_generate.assert_called_once_with(
         extension="1001", mac_address="AABBCCDDEEFF"
@@ -264,7 +281,8 @@ def test_replace_phone_by_ext_success(mocker: MockerFixture) -> None:
 @pytest.mark.usefixtures("mock_asterisk_env")
 def test_replace_phone_by_mac_success(mocker: MockerFixture) -> None:
     mocker.patch(
-        "src.services.provisioning.read_mac_addr", return_value="AABBCCDDEEFF"
+        "asterisk_phone_management.services.provisioning.read_mac_addr",
+        return_value="AABBCCDDEEFF",
     )
     replace_phone("mac", "112233445566")
 
@@ -278,7 +296,8 @@ def test_replace_phone_invalid_method() -> None:
 @pytest.mark.usefixtures("mock_asterisk_env")
 def test_replace_phone_duplicate_mac_error(mocker: MockerFixture) -> None:
     mocker.patch(
-        "src.services.provisioning.read_mac_addr", return_value="112233445566"
+        "asterisk_phone_management.services.provisioning.read_mac_addr",
+        return_value="112233445566",
     )
 
     with pytest.raises(
@@ -293,9 +312,12 @@ def test_replace_phone_no_old_cnf_file_warning(
 ) -> None:
     mock_asterisk_env["existing_xml"].unlink()
     mocker.patch(
-        "src.services.provisioning.read_mac_addr", return_value="AABBCCDDEEFF"
+        "asterisk_phone_management.services.provisioning.read_mac_addr",
+        return_value="AABBCCDDEEFF",
     )
-    mock_log = mocker.patch("src.services.provisioning.log.warning")
+    mock_log = mocker.patch(
+        "asterisk_phone_management.services.provisioning.log.warning"
+    )
 
     replace_phone("ext", "1001")
     mock_log.assert_called()
@@ -304,10 +326,11 @@ def test_replace_phone_no_old_cnf_file_warning(
 @pytest.mark.usefixtures("mock_asterisk_env")
 def test_replace_phone_os_error_handling(mocker: MockerFixture) -> None:
     mocker.patch(
-        "src.services.provisioning.read_mac_addr", return_value="AABBCCDDEEFF"
+        "asterisk_phone_management.services.provisioning.read_mac_addr",
+        return_value="AABBCCDDEEFF",
     )
     mocker.patch(
-        "src.services.provisioning._replace_mac_in_file",
+        "asterisk_phone_management.services.provisioning._replace_mac_in_file",
         side_effect=OSError("Write failed"),
     )
 

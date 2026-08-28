@@ -49,7 +49,9 @@ def test_edit_files_success(
 ) -> None:
     sip_conf = mock_asterisk_env["sip_conf"]
     mocker.patch("questionary.select").return_value.ask.return_value = sip_conf
-    mocker.patch("src.edit_files.get_editor", return_value="nvim")
+    mocker.patch(
+        "asterisk_phone_management.edit_files.get_editor", return_value="nvim"
+    )
     mock_run = mocker.patch("subprocess.run")
 
     edit_files()
@@ -62,7 +64,9 @@ def test_edit_files_no_editor_raises_error(
 ) -> None:
     sip_conf = mock_asterisk_env["sip_conf"]
     mocker.patch("questionary.select").return_value.ask.return_value = sip_conf
-    mocker.patch("src.edit_files.get_editor", return_value=None)
+    mocker.patch(
+        "asterisk_phone_management.edit_files.get_editor", return_value=None
+    )
 
     with pytest.raises(AsteriskCliError, match="No valid editor found"):
         edit_files()
@@ -73,7 +77,9 @@ def test_edit_files_editor_error_rolls_back(
 ) -> None:
     sip_conf = mock_asterisk_env["sip_conf"]
     mocker.patch("questionary.select").return_value.ask.return_value = sip_conf
-    mocker.patch("src.edit_files.get_editor", return_value="nvim")
+    mocker.patch(
+        "asterisk_phone_management.edit_files.get_editor", return_value="nvim"
+    )
     mocker.patch(
         "subprocess.run", side_effect=subprocess.CalledProcessError(1, "nvim")
     )
@@ -89,7 +95,9 @@ def test_edit_files_internal_keyboard_interrupt(
 ) -> None:
     sip_conf = mock_asterisk_env["sip_conf"]
     mocker.patch("questionary.select").return_value.ask.return_value = sip_conf
-    mocker.patch("src.edit_files.get_editor", return_value="nvim")
+    mocker.patch(
+        "asterisk_phone_management.edit_files.get_editor", return_value="nvim"
+    )
     mocker.patch("subprocess.run", side_effect=KeyboardInterrupt)
     with pytest.raises(KeyboardInterrupt):
         edit_files()
@@ -100,7 +108,9 @@ def test_edit_files_keyboard_interrupt(
 ) -> None:
     sip_conf = mock_asterisk_env["sip_conf"]
     mocker.patch("questionary.select").return_value.ask.return_value = sip_conf
-    mocker.patch("src.edit_files.get_editor", return_value="nvim")
+    mocker.patch(
+        "asterisk_phone_management.edit_files.get_editor", return_value="nvim"
+    )
     mocker.patch("subprocess.run", side_effect=KeyboardInterrupt)
 
     with contextlib.suppress(KeyboardInterrupt):

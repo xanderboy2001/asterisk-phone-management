@@ -25,7 +25,10 @@ def test_parse_args_verbose() -> None:
 
 @pytest.mark.usefixtures("mock_asterisk_env")
 def test_ensure_required_paths_success(mocker: MockerFixture) -> None:
-    mocker.patch("src.main.Path.exists", return_value=True)
+    mocker.patch(
+        "asterisk_phone_management.main.Path.exists",
+        return_value=True,
+    )
     ensure_required_paths()
 
 
@@ -33,7 +36,10 @@ def test_ensure_required_paths_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     missing_file = tmp_path / "nonexistent.conf"
-    monkeypatch.setattr("src.main.REQUIRED_FILES", (missing_file,))
+    monkeypatch.setattr(
+        "asterisk_phone_management.main.REQUIRED_FILES",
+        (missing_file,),
+    )
 
     with pytest.raises(FileNotFoundError, match="Missing 1 required file"):
         ensure_required_paths()
@@ -43,8 +49,10 @@ def test_main_missing_files_exits(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
 ) -> None:
     missing_file = tmp_path / "nonexistent.conf"
-    monkeypatch.setattr("src.main.REQUIRED_FILES", (missing_file,))
-    mocker.patch("src.main._parse_args")
+    monkeypatch.setattr(
+        "asterisk_phone_management.main.REQUIRED_FILES", (missing_file,)
+    )
+    mocker.patch("asterisk_phone_management.main._parse_args")
 
     with pytest.raises(SystemExit) as exc_info:
         main()
@@ -54,9 +62,10 @@ def test_main_missing_files_exits(
 
 @pytest.mark.usefixtures("mock_asterisk_env")
 def test_main_menu_loop_execution(mocker: MockerFixture) -> None:
-    mocker.patch("src.main.ensure_required_paths")
+    mocker.patch("asterisk_phone_management.main.ensure_required_paths")
     mocker.patch(
-        "src.main._parse_args", return_value=mocker.MagicMock(verbose=True)
+        "asterisk_phone_management.main._parse_args",
+        return_value=mocker.MagicMock(verbose=True),
     )
 
     action_normal = mocker.MagicMock()
@@ -87,9 +96,10 @@ def test_main_menu_loop_execution(mocker: MockerFixture) -> None:
 
 
 def test_main_menu_cancelled_none(mocker: MockerFixture) -> None:
-    mocker.patch("src.main.ensure_required_paths")
+    mocker.patch("asterisk_phone_management.main.ensure_required_paths")
     mocker.patch(
-        "src.main._parse_args", return_value=mocker.MagicMock(verbose=False)
+        "asterisk_phone_management.main._parse_args",
+        return_value=mocker.MagicMock(verbose=False),
     )
     mock_select = mocker.patch("questionary.select")
     mock_select.return_value.ask.return_value = None
@@ -97,9 +107,10 @@ def test_main_menu_cancelled_none(mocker: MockerFixture) -> None:
 
 
 def test_main_menu_keyboard_interrupt(mocker: MockerFixture) -> None:
-    mocker.patch("src.main.ensure_required_paths")
+    mocker.patch("asterisk_phone_management.main.ensure_required_paths")
     mocker.patch(
-        "src.main._parse_args", return_value=mocker.MagicMock(verbose=False)
+        "asterisk_phone_management.main._parse_args",
+        return_value=mocker.MagicMock(verbose=False),
     )
     mock_select = mocker.patch("questionary.select")
     mock_select.return_value.ask.side_effect = KeyboardInterrupt

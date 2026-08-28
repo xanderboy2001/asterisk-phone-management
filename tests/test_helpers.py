@@ -16,7 +16,7 @@ from asterisk_phone_management.schemas.models import ConfigMatch
 
 
 def test_copy_file_safe_success(tmp_path: Path) -> None:
-    src = tmp_path / "src.txt"
+    src = tmp_path / "asterisk_phone_management.txt"
     dst = tmp_path / "dst.txt"
     src.write_text("test content", encoding="utf-8")
 
@@ -49,7 +49,7 @@ def test_copy_file_safe_same_file(tmp_path: Path) -> None:
 def test_copy_file_safe_permission_error(
     tmp_path: Path, mocker: MockerFixture
 ) -> None:
-    src = tmp_path / "src.txt"
+    src = tmp_path / "asterisk_phone_management.txt"
     dst = tmp_path / "dst.txt"
     src.write_text("test_content", encoding="utf-8")
 
@@ -66,7 +66,7 @@ def test_copy_file_safe_permission_error(
 def test_copy_file_safe_os_error(
     tmp_path: Path, mocker: MockerFixture
 ) -> None:
-    src = tmp_path / "src.txt"
+    src = tmp_path / "asterisk_phone_management.txt"
     dst = tmp_path / "dst.txt"
     src.write_text("test_content", encoding="utf-8")
 
