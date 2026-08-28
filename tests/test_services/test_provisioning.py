@@ -5,9 +5,12 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
-from src.core.exceptions import AsteriskCliError, AsteriskServiceError
-from src.schemas.models import Phone, Voicemail
-from src.services.provisioning import (
+from asterisk_phone_management.core.exceptions import (
+    AsteriskCliError,
+    AsteriskServiceError,
+)
+from asterisk_phone_management.schemas.models import Phone, Voicemail
+from asterisk_phone_management.services.provisioning import (
     _cleanup_created_files,
     _deprovision_phone,
     _provision_phone,

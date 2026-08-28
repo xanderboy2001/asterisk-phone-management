@@ -5,7 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from src.schemas.models import ActiveCall, ConfigMatch, Phone, Voicemail
+from asterisk_phone_management.schemas.models import (
+    ActiveCall,
+    ConfigMatch,
+    Phone,
+    Voicemail,
+)
 
 
 @pytest.fixture

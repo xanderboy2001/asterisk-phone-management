@@ -6,12 +6,12 @@ import pexpect
 import pytest
 from pytest_mock import MockerFixture
 
-from src.core.exceptions import (
+from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     AsteriskServiceError,
     DeviceCommunicationError,
 )
-from src.services.device_actions import (
+from asterisk_phone_management.services.device_actions import (
     _get_ip_address,
     _invoke_phone_reboot,
     _is_asterisk_running,

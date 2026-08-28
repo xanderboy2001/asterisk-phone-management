@@ -8,8 +8,13 @@ import logging
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.logging import RichHandler
+
+# Load environment variables from a .env file if present in the current
+# working directory.
+load_dotenv()
 
 MAC_ADDRESS_LENGTH: int = 12
 EXTENSION_LENGTH: int = 4
@@ -19,21 +24,13 @@ MINIMUM_VM_PASSWORD_LENGTH: int = 4
 PHONE_SSH_USER: str = os.environ.get("ASTERISK_CLI_PHONE_SSH_USER", "admin")
 PHONE_SSH_PASS: str = os.environ.get("ASTERISK_CLI_PHONE_SSH_PASS", "cisco")
 
-# Defaults target a local ./config sandbox for development; set
-# ASTERISK_CLI_ETC and ASTERISK_CLI_TFTPBOOT to point at the real
-# /etc/asterisk and /var/lib/tftpboot in production.
-ETC_ASTERISK: Path = Path(
-    os.environ.get(
-        "ASTERISK_CLI_ETC",
-        str(Path(__file__).parent.parent / "config" / "asterisk"),
-    )
-)
+# Production paths by default; overridable via ASTERISK_CLI_ETC and
+# ASTERISK_CLI_TFTPBOOT in .env
+ETC_ASTERISK: Path = Path(os.environ.get("ASTERISK_CLI_ETC", "/etc/asterisk"))
 TFTPBOOT: Path = Path(
-    os.environ.get(
-        "ASTERISK_CLI_TFTPBOOT",
-        str(Path(__file__).parent.parent / "config" / "tftpboot"),
-    )
+    os.environ.get("ASTERISK_CLI_TFTPBOOT", "/var/lib/tftpboot")
 )
+
 # Required files + paths
 
 SIP_CONF: Path = ETC_ASTERISK / "sip.conf"

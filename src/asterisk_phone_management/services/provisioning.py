@@ -6,14 +6,14 @@ from pathlib import Path
 
 import questionary
 
-from src.cli.prompts import read_mac_addr
-from src.cli.views import print_phone_table
-from src.core.exceptions import (
+from asterisk_phone_management.cli.prompts import read_mac_addr
+from asterisk_phone_management.cli.views import print_phone_table
+from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     AsteriskServiceError,
     FileTransactionError,
 )
-from src.core.globals import (
+from asterisk_phone_management.core.globals import (
     EXTENSIONS_CONF,
     SIP_CONF,
     TFTPBOOT,
@@ -21,10 +21,21 @@ from src.core.globals import (
     XML_TEMPLATE,
     log,
 )
-from src.core.transactions import ConfigTransaction
-from src.helpers import copy_file_safe, get_ext_from_mac, get_mac_from_ext
-from src.schemas.models import ConfigMatch, Phone, Voicemail
-from src.services.search import search_for_extension, search_for_mac_address
+from asterisk_phone_management.core.transactions import ConfigTransaction
+from asterisk_phone_management.helpers import (
+    copy_file_safe,
+    get_ext_from_mac,
+    get_mac_from_ext,
+)
+from asterisk_phone_management.schemas.models import (
+    ConfigMatch,
+    Phone,
+    Voicemail,
+)
+from asterisk_phone_management.services.search import (
+    search_for_extension,
+    search_for_mac_address,
+)
 
 
 def _patch_cnf_xml(file_path: Path, placeholder: str, new_value: str) -> None:

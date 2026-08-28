@@ -6,9 +6,9 @@ from pathlib import Path
 from types import TracebackType
 from typing import Self
 
-from src.core.exceptions import FileTransactionError
-from src.core.globals import log
-from src.helpers import backup_config_file
+from asterisk_phone_management.core.exceptions import FileTransactionError
+from asterisk_phone_management.core.globals import log
+from asterisk_phone_management.helpers import backup_config_file
 
 
 class ConfigTransaction:

@@ -1,6 +1,6 @@
 """CLI handler functions for processing user menu selections."""
 
-from src.cli.prompts import (
+from asterisk_phone_management.cli.prompts import (
     prompt_search_method,
     prompt_use_voicemail,
     read_caller_id,
@@ -10,16 +10,19 @@ from src.cli.prompts import (
     read_name,
     read_new_password,
 )
-from src.core.globals import log
-from src.schemas.models import Phone, Voicemail
-from src.services.device_actions import reboot_phone
-from src.services.provisioning import (
+from asterisk_phone_management.core.globals import log
+from asterisk_phone_management.schemas.models import Phone, Voicemail
+from asterisk_phone_management.services.device_actions import reboot_phone
+from asterisk_phone_management.services.provisioning import (
     register_phone,
     remove_phone,
     replace_phone,
 )
-from src.services.search import search_for_extension, search_for_mac_address
-from src.services.voicemail import reset_vm_password
+from asterisk_phone_management.services.search import (
+    search_for_extension,
+    search_for_mac_address,
+)
+from asterisk_phone_management.services.voicemail import reset_vm_password
 
 
 def handle_search_for_extension() -> None:

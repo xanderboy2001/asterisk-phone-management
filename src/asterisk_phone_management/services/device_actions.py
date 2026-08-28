@@ -6,15 +6,22 @@ import subprocess
 
 import pexpect
 
-from src.core.exceptions import (
+from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     AsteriskServiceError,
     DeviceCommunicationError,
 )
-from src.core.globals import PHONE_SSH_PASS, PHONE_SSH_USER, log
-from src.helpers import get_mac_from_ext
-from src.schemas.models import ActiveCall
-from src.services.search import ConfigMatch, search_for_extension
+from asterisk_phone_management.core.globals import (
+    PHONE_SSH_PASS,
+    PHONE_SSH_USER,
+    log,
+)
+from asterisk_phone_management.helpers import get_mac_from_ext
+from asterisk_phone_management.schemas.models import ActiveCall
+from asterisk_phone_management.services.search import (
+    ConfigMatch,
+    search_for_extension,
+)
 
 EXPECTED_FIELD_COUNT: int = len(ActiveCall.FIELD_ORDER)
 

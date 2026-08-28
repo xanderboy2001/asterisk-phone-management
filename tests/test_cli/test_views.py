@@ -3,13 +3,17 @@
 from pytest_mock import MockerFixture
 from rich.table import Table
 
-from src.cli.views import (
+from asterisk_phone_management.cli.views import (
     _format_duration,
     _generate_call_table,
     print_phone_table,
     view_active_calls,
 )
-from src.schemas.models import ActiveCall, Phone, Voicemail
+from asterisk_phone_management.schemas.models import (
+    ActiveCall,
+    Phone,
+    Voicemail,
+)
 
 
 def test_format_duration() -> None:

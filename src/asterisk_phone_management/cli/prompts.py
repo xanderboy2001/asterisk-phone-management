@@ -5,15 +5,18 @@ from typing import Literal
 
 import questionary
 
-from src.core.exceptions import AsteriskCliError
-from src.core.globals import MINIMUM_VM_PASSWORD_LENGTH, log
-from src.core.validators import (
+from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.core.globals import (
+    MINIMUM_VM_PASSWORD_LENGTH,
+    log,
+)
+from asterisk_phone_management.core.validators import (
     validate_email,
     validate_extension,
     validate_mac_addr,
     validate_vm_password,
 )
-from src.services.search import (
+from asterisk_phone_management.services.search import (
     ConfigMatch,
     search_for_extension,
     search_for_mac_address,

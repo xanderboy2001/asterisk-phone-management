@@ -7,9 +7,13 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 
-from src.core.globals import console, log
-from src.schemas.models import ActiveCall, Phone, Voicemail
-from src.services.device_actions import get_active_calls
+from asterisk_phone_management.core.globals import console, log
+from asterisk_phone_management.schemas.models import (
+    ActiveCall,
+    Phone,
+    Voicemail,
+)
+from asterisk_phone_management.services.device_actions import get_active_calls
 
 
 def print_phone_table(

@@ -7,8 +7,11 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
-from src.core.exceptions import AsteriskCliError, FileTransactionError
-from src.edit_files import edit_files, get_editor
+from asterisk_phone_management.core.exceptions import (
+    AsteriskCliError,
+    FileTransactionError,
+)
+from asterisk_phone_management.edit_files import edit_files, get_editor
 
 
 def test_get_editor_found(mocker: MockerFixture) -> None:

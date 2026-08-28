@@ -4,8 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from src.core.exceptions import AsteriskCliError, FileTransactionError
-from src.services.voicemail import reset_vm_password
+from asterisk_phone_management.core.exceptions import (
+    AsteriskCliError,
+    FileTransactionError,
+)
+from asterisk_phone_management.services.voicemail import reset_vm_password
 
 
 def test_reset_vm_password_success(mock_asterisk_env: dict[str, Path]) -> None:

@@ -7,9 +7,9 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from src.core.exceptions import AsteriskCliError
-from src.core.globals import TFTPBOOT, log
-from src.schemas.models import ConfigMatch
+from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.core.globals import TFTPBOOT, log
+from asterisk_phone_management.schemas.models import ConfigMatch
 
 
 def copy_file_safe(src: Path, dst: Path) -> None:

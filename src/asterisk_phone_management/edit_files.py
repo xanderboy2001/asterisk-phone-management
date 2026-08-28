@@ -8,9 +8,17 @@ from pathlib import Path
 import questionary
 from questionary import Choice
 
-from src.core.exceptions import AsteriskCliError, FileTransactionError
-from src.core.globals import EXTENSIONS_CONF, SIP_CONF, VOICEMAIL_CONF, log
-from src.core.transactions import ConfigTransaction
+from asterisk_phone_management.core.exceptions import (
+    AsteriskCliError,
+    FileTransactionError,
+)
+from asterisk_phone_management.core.globals import (
+    EXTENSIONS_CONF,
+    SIP_CONF,
+    VOICEMAIL_CONF,
+    log,
+)
+from asterisk_phone_management.core.transactions import ConfigTransaction
 
 
 def get_editor() -> str | None:

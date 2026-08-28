@@ -5,14 +5,14 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
-from src.core.exceptions import AsteriskCliError
-from src.helpers import (
+from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.helpers import (
     backup_config_file,
     copy_file_safe,
     get_ext_from_mac,
     get_mac_from_ext,
 )
-from src.schemas.models import ConfigMatch
+from asterisk_phone_management.schemas.models import ConfigMatch
 
 
 def test_copy_file_safe_success(tmp_path: Path) -> None:

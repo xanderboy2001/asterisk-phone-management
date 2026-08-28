@@ -5,8 +5,12 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
-from src.core.exceptions import AsteriskCliError
-from src.main import _parse_args, ensure_required_paths, main
+from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.main import (
+    _parse_args,
+    ensure_required_paths,
+    main,
+)
 
 
 def test_parse_args_default() -> None:

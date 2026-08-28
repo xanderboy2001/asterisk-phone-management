@@ -2,7 +2,7 @@
 
 import re
 
-from src.core.globals import (
+from asterisk_phone_management.core.globals import (
     EXTENSION_LENGTH,
     MAC_ADDRESS_LENGTH,
     MINIMUM_VM_PASSWORD_LENGTH,

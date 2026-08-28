@@ -3,14 +3,14 @@
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-from src.core.globals import (
+from asterisk_phone_management.core.globals import (
     EXTENSIONS_CONF,
     SIP_CONF,
     TFTPBOOT,
     VOICEMAIL_CONF,
     log,
 )
-from src.schemas.models import ConfigMatch
+from asterisk_phone_management.schemas.models import ConfigMatch
 
 MatchRule = Callable[[str, str], bool]
 

@@ -4,7 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from src.schemas.models import ActiveCall, ConfigMatch, Phone, Voicemail
+from asterisk_phone_management.schemas.models import (
+    ActiveCall,
+    ConfigMatch,
+    Phone,
+    Voicemail,
+)
 
 
 def test_config_match_immutability(tmp_path: Path) -> None:

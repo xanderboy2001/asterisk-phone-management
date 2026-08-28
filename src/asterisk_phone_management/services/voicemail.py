@@ -2,10 +2,13 @@
 
 import re
 
-from src.core.exceptions import AsteriskCliError, FileTransactionError
-from src.core.globals import VOICEMAIL_CONF, log
-from src.core.transactions import ConfigTransaction
-from src.services.search import search_for_extension
+from asterisk_phone_management.core.exceptions import (
+    AsteriskCliError,
+    FileTransactionError,
+)
+from asterisk_phone_management.core.globals import VOICEMAIL_CONF, log
+from asterisk_phone_management.core.transactions import ConfigTransaction
+from asterisk_phone_management.services.search import search_for_extension
 
 
 def reset_vm_password(extension: str, new_pin: str) -> None:

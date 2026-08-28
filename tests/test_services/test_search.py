@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.services.search import (
+from asterisk_phone_management.services.search import (
     _is_extensions_ext_match,
     _is_extensions_mac_match,
     _is_sip_ext_match,

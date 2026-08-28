@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.core.validators import (
+from asterisk_phone_management.core.validators import (
     validate_email,
     validate_extension,
     validate_mac_addr,

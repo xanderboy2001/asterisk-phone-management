@@ -2,7 +2,7 @@
 
 from pytest_mock import MockerFixture
 
-from src.cli.handlers import (
+from asterisk_phone_management.cli.handlers import (
     handle_reboot_phone,
     handle_register_phone,
     handle_remove_phone,
@@ -11,7 +11,7 @@ from src.cli.handlers import (
     handle_search_for_extension,
     handle_search_for_mac_address,
 )
-from src.schemas.models import Phone, Voicemail
+from asterisk_phone_management.schemas.models import Phone, Voicemail
 
 
 def test_handle_search_for_extension(mocker: MockerFixture) -> None:

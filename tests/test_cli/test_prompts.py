@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
-from src.cli.prompts import (
+from asterisk_phone_management.cli.prompts import (
     _log_results,
     prompt_search_extension,
     prompt_search_mac,
@@ -18,8 +18,8 @@ from src.cli.prompts import (
     read_name,
     read_new_password,
 )
-from src.core.exceptions import AsteriskCliError
-from src.schemas.models import ConfigMatch
+from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.schemas.models import ConfigMatch
 
 
 def test_log_results_empty(mocker: MockerFixture) -> None:

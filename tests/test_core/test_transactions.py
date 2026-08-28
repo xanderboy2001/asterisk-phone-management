@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
-from src.core.exceptions import FileTransactionError
-from src.core.transactions import ConfigTransaction
+from asterisk_phone_management.core.exceptions import FileTransactionError
+from asterisk_phone_management.core.transactions import ConfigTransaction
 
 
 def test_config_transaction_success(
