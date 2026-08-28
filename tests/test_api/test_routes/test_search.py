@@ -119,3 +119,40 @@ def test_search_mac_addr_not_found(
         response.json()["detail"]
         == "No references to MAC address AABBCCDDEEFF were found."
     )
+
+
+@patch("asterisk_phone_management.api.routes.search.search_for_caller_id")
+def test_search_caller_id_success(
+    mock_search: MagicMock,
+) -> None:
+    mock_search.return_value = [
+        ConfigMatch(
+            file_path=Path("/etc/asterisk/sip.conf"),
+            line_number=10,
+            matched_text='callerid="John Smith" <1234>\n',
+        )
+    ]
+
+    response = client.get("/api/v1/search/caller_id/john")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["file_path"] == "/etc/asterisk/sip.conf"
+    assert data[0]["line_number"] == 10
+    assert data[0]["matched_text"] == 'callerid="John Smith" <1234>\n'
+
+
+@patch("asterisk_phone_management.api.routes.search.search_for_caller_id")
+def test_search_caller_id_not_found(
+    mock_search: MagicMock,
+) -> None:
+    mock_search.return_value = []
+
+    response = client.get("/api/v1/search/caller_id/AABBCCDDEEFF")
+
+    assert response.status_code == 404
+    assert (
+        response.json()["detail"]
+        == "No references to caller ID AABBCCDDEEFF were found."
+    )

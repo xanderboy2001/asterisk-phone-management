@@ -14,6 +14,7 @@ from asterisk_phone_management.core.validators import (
 )
 from asterisk_phone_management.schemas.models import ConfigMatch
 from asterisk_phone_management.services.search import (
+    search_for_caller_id,
     search_for_extension,
     search_for_mac_address,
 )
@@ -106,6 +107,50 @@ def search_mac_address(
         raise HTTPException(
             status_code=404,
             detail=f"No references to MAC address {mac_address} were found.",
+        )
+
+    response_data: list[ConfigMatchResponse] = [
+        ConfigMatchResponse(
+            file_path=str(match.file_path),
+            line_number=match.line_number,
+            matched_text=match.matched_text,
+        )
+        for match in matches
+    ]
+
+    return response_data
+
+
+@router.get(
+    "/caller_id/{caller_id}",
+    response_model=list[ConfigMatchResponse],
+    summary="Search for a caller ID",
+    description="Search sip.conf for a given caller ID.",
+)
+def search_caller_id(
+    caller_id: str = Path(
+        ..., description="The caller ID to search for (e.g., John)."
+    ),
+) -> list[ConfigMatchResponse]:
+    """Search for a given caller ID within sip.conf.
+
+    Args:
+        caller_id: Target caller ID to search for,
+            provided as path parameter.
+
+    Returns:
+        List of Pydantic models containing the search results.
+
+    Raises:
+        HTTPException: Raised with 400 status code if validation fails.
+        HTTPException: Raised with 404 status code if no matches are found.
+    """
+    matches: list[ConfigMatch] = search_for_caller_id(caller_id)
+
+    if not matches:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No references to caller ID {caller_id} were found.",
         )
 
     response_data: list[ConfigMatchResponse] = [
