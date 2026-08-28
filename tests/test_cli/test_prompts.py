@@ -17,20 +17,25 @@ from asterisk_phone_management.cli.prompts import (
     read_mac_addr,
     read_name,
     read_new_password,
+    read_search_query,
 )
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.schemas.models import ConfigMatch
 
 
 def test_log_results_empty(mocker: MockerFixture) -> None:
-    mock_log_warn = mocker.patch("src.cli.prompts.log.warning")
+    mock_log_warn = mocker.patch(
+        "asterisk_phone_management.cli.prompts.log.warning"
+    )
 
     _log_results([], "1001")
     mock_log_warn.assert_called_once_with("No references found for %s", "1001")
 
 
 def test_log_results_populated(tmp_path: Path, mocker: MockerFixture) -> None:
-    mock_log_info = mocker.patch("src.cli.prompts.log.info")
+    mock_log_info = mocker.patch(
+        "asterisk_phone_management.cli.prompts.log.info"
+    )
     matches = [
         ConfigMatch(
             file_path=tmp_path / "sip.conf",
@@ -43,11 +48,17 @@ def test_log_results_populated(tmp_path: Path, mocker: MockerFixture) -> None:
 
 
 def test_prompt_search_extension(mocker: MockerFixture) -> None:
-    mocker.patch("src.cli.prompts.read_extension", return_value="1001")
-    mock_search = mocker.patch(
-        "src.cli.prompts.search_for_extension", return_value=[]
+    mocker.patch(
+        "asterisk_phone_management.cli.prompts.read_extension",
+        return_value="1001",
     )
-    mock_log = mocker.patch("src.cli.prompts._log_results")
+    mock_search = mocker.patch(
+        "asterisk_phone_management.cli.prompts.search_for_extension",
+        return_value=[],
+    )
+    mock_log = mocker.patch(
+        "asterisk_phone_management.cli.prompts._log_results"
+    )
 
     prompt_search_extension()
 
@@ -56,11 +67,17 @@ def test_prompt_search_extension(mocker: MockerFixture) -> None:
 
 
 def test_prompt_search_mac(mocker: MockerFixture) -> None:
-    mocker.patch("src.cli.prompts.read_mac_addr", return_value="AABBCCDDEEFF")
-    mock_search = mocker.patch(
-        "src.cli.prompts.search_for_mac_address", return_value=[]
+    mocker.patch(
+        "asterisk_phone_management.cli.prompts.read_mac_addr",
+        return_value="AABBCCDDEEFF",
     )
-    mock_log = mocker.patch("src.cli.prompts._log_results")
+    mock_search = mocker.patch(
+        "asterisk_phone_management.cli.prompts.search_for_mac_address",
+        return_value=[],
+    )
+    mock_log = mocker.patch(
+        "asterisk_phone_management.cli.prompts._log_results"
+    )
 
     prompt_search_mac()
     mock_search.assert_called_once_with("AABBCCDDEEFF")
@@ -142,12 +159,34 @@ def test_read_email_cancelled(mocker: MockerFixture) -> None:
         read_email()
 
 
+def test_read_new_password_success(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+    mock_text.return_value.ask.return_value = "1234"
+
+    assert read_new_password("9999") == "1234"
+
+
 def test_read_new_password_empty_raises_error(mocker: MockerFixture) -> None:
     mock_text = mocker.patch("questionary.text")
     mock_text.return_value.ask.return_value = ""
 
     with pytest.raises(AsteriskCliError, match="No password provided"):
         read_new_password("1001")
+
+
+def test_read_search_query(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+    mock_text.return_value.ask.return_value = "test"
+
+    assert read_search_query() == "test"
+
+
+def test_read_search_query_empty_raises_error(mocker: MockerFixture) -> None:
+    mock_text = mocker.patch("questionary.text")
+    mock_text.return_value.ask.return_value = ""
+
+    with pytest.raises(AsteriskCliError, match="No search query provided"):
+        read_search_query()
 
 
 def test_prompt_search_method_success(mocker: MockerFixture) -> None:

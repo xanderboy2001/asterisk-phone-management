@@ -64,33 +64,78 @@ def mock_asterisk_env(
         encoding="utf-8",
     )
 
-    monkeypatch.setattr("src.core.globals.ETC_ASTERISK", etc_dir)
-    monkeypatch.setattr("src.core.globals.TFTPBOOT", tftp_dir)
-    monkeypatch.setattr("src.core.globals.SIP_CONF", sip_conf)
-    monkeypatch.setattr("src.core.globals.EXTENSIONS_CONF", ext_conf)
-    monkeypatch.setattr("src.core.globals.VOICEMAIL_CONF", vm_conf)
-    monkeypatch.setattr("src.core.globals.XML_TEMPLATE", xml_template)
     monkeypatch.setattr(
-        "src.core.globals.REQUIRED_FILES",
+        "asterisk_phone_management.core.globals.ETC_ASTERISK", etc_dir
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.core.globals.TFTPBOOT", tftp_dir
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.core.globals.SIP_CONF", sip_conf
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.core.globals.EXTENSIONS_CONF", ext_conf
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.core.globals.VOICEMAIL_CONF", vm_conf
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.core.globals.XML_TEMPLATE", xml_template
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.core.globals.REQUIRED_FILES",
         (sip_conf, ext_conf, vm_conf, xml_template),
     )
 
-    monkeypatch.setattr("src.services.search.SIP_CONF", sip_conf)
-    monkeypatch.setattr("src.services.search.EXTENSIONS_CONF", ext_conf)
-    monkeypatch.setattr("src.services.search.VOICEMAIL_CONF", vm_conf)
-    monkeypatch.setattr("src.services.search.TFTPBOOT", tftp_dir)
+    monkeypatch.setattr(
+        "asterisk_phone_management.services.search.SIP_CONF", sip_conf
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.services.search.EXTENSIONS_CONF",
+        ext_conf,
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.services.search.VOICEMAIL_CONF", vm_conf
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.services.search.TFTPBOOT", tftp_dir
+    )
 
-    monkeypatch.setattr("src.services.provisioning.SIP_CONF", sip_conf)
-    monkeypatch.setattr("src.services.provisioning.EXTENSIONS_CONF", ext_conf)
-    monkeypatch.setattr("src.services.provisioning.VOICEMAIL_CONF", vm_conf)
-    monkeypatch.setattr("src.services.provisioning.TFTPBOOT", tftp_dir)
-    monkeypatch.setattr("src.services.provisioning.XML_TEMPLATE", xml_template)
+    monkeypatch.setattr(
+        "asterisk_phone_management.services.provisioning.SIP_CONF",
+        sip_conf,
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.services.provisioning.EXTENSIONS_CONF",
+        ext_conf,
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.services.provisioning.VOICEMAIL_CONF",
+        vm_conf,
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.services.provisioning.TFTPBOOT",
+        tftp_dir,
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.services.provisioning.XML_TEMPLATE",
+        xml_template,
+    )
 
-    monkeypatch.setattr("src.services.voicemail.VOICEMAIL_CONF", vm_conf)
-    monkeypatch.setattr("src.edit_files.SIP_CONF", sip_conf)
-    monkeypatch.setattr("src.edit_files.EXTENSIONS_CONF", ext_conf)
-    monkeypatch.setattr("src.edit_files.VOICEMAIL_CONF", vm_conf)
-    monkeypatch.setattr("src.helpers.TFTPBOOT", tftp_dir)
+    monkeypatch.setattr(
+        "asterisk_phone_management.services.voicemail.VOICEMAIL_CONF",
+        vm_conf,
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.edit_files.SIP_CONF", sip_conf
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.edit_files.EXTENSIONS_CONF", ext_conf
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.edit_files.VOICEMAIL_CONF", vm_conf
+    )
+    monkeypatch.setattr("asterisk_phone_management.helpers.TFTPBOOT", tftp_dir)
 
     yield {
         "etc_dir": etc_dir,

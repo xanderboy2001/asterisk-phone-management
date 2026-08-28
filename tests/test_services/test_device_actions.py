@@ -51,6 +51,17 @@ def test_get_ip_address_subprocess_failure(mocker: MockerFixture) -> None:
         _get_ip_address("112233445566")
 
 
+def test_get_ip_address_no_regex_match(mocker: MockerFixture) -> None:
+    mock_run = mocker.patch("subprocess.run")
+
+    mock_run.return_value.stdout = "Description: SIP Peer\nStatus: OK\n"
+
+    with pytest.raises(
+        DeviceCommunicationError, match="Could not resolve an IP address"
+    ):
+        _get_ip_address("112233445566")
+
+
 def test_send_reboot_command(mocker: MockerFixture) -> None:
     mock_child = mocker.MagicMock()
     _send_reboot_command(mock_child, "password123")
@@ -59,7 +70,9 @@ def test_send_reboot_command(mocker: MockerFixture) -> None:
 
 def test_invoke_phone_reboot_success(mocker: MockerFixture) -> None:
     mocker.patch("pexpect.spawn")
-    mocker.patch("src.services.device_actions._send_reboot_command")
+    mocker.patch(
+        "asterisk_phone_management.services.device_actions._send_reboot_command"
+    )
 
     assert _invoke_phone_reboot("192.168.1.50", "admin", "cisco") is True
 
@@ -67,7 +80,8 @@ def test_invoke_phone_reboot_success(mocker: MockerFixture) -> None:
 def test_invoke_phone_reboot_success_else_block(mocker: MockerFixture) -> None:
     mocker.patch("pexpect.spawn")
     mocker.patch(
-        "src.services.device_actions._send_reboot_command", return_value=None
+        "asterisk_phone_management.services.device_actions._send_reboot_command",
+        return_value=None,
     )
     assert _invoke_phone_reboot("192.168.1.50", "admin", "cisco") is True
 
@@ -152,10 +166,11 @@ def test_reload_asterisk_module_failure(mocker: MockerFixture) -> None:
 
 def test_reload_asterisk_full_flow(mocker: MockerFixture) -> None:
     mocker.patch(
-        "src.services.device_actions._is_asterisk_running", return_value=True
+        "asterisk_phone_management.services.device_actions._is_asterisk_running",
+        return_value=True,
     )
     mock_reload_mod = mocker.patch(
-        "src.services.device_actions.reload_asterisk_module"
+        "asterisk_phone_management.services.device_actions.reload_asterisk_module"
     )
 
     reload_asterisk()
@@ -165,7 +180,8 @@ def test_reload_asterisk_full_flow(mocker: MockerFixture) -> None:
 
 def test_reload_asterisk_not_running(mocker: MockerFixture) -> None:
     mocker.patch(
-        "src.services.device_actions._is_asterisk_running", return_value=False
+        "asterisk_phone_management.services.device_actions._is_asterisk_running",
+        return_value=False,
     )
 
     with pytest.raises(AsteriskServiceError, match="Asterisk is not running"):
@@ -205,21 +221,34 @@ def test_get_active_calls_file_not_found(mocker: MockerFixture) -> None:
     assert get_active_calls() == []
 
 
+def test_get_active_calls_empty_line(mocker: MockerFixture) -> None:
+    raw_output = (
+        "SIP/SEP112233445566-00000001!default!1001!1!Up!Dial!SIP/SEP2!1002!Alice!!DOCUMENTATION!120!SIP/SEP2-00000002\n"
+        "\n"  # Creates an explicitly empty string when split by \n
+        "SIP/SEP223344556677-00000002!default!1002!1!Up!Dial!SIP/SEP1!1001!Bob!!DOCUMENTATION!120!\n"
+    )
+    mock_run = mocker.patch("subprocess.run")
+    mock_run.return_value.stdout = raw_output
+    calls = get_active_calls()
+
+    assert len(calls) == 2
+
+
 def test_reboot_phone_flow(mocker: MockerFixture) -> None:
     mocker.patch(
-        "src.services.device_actions.search_for_extension",
+        "asterisk_phone_management.services.device_actions.search_for_extension",
         return_value=["match"],
     )
     mocker.patch(
-        "src.services.device_actions.get_mac_from_ext",
+        "asterisk_phone_management.services.device_actions.get_mac_from_ext",
         return_value="112233445566",
     )
     mocker.patch(
-        "src.services.device_actions._get_ip_address",
+        "asterisk_phone_management.services.device_actions._get_ip_address",
         return_value="192.168.1.50",
     )
     mock_invoke = mocker.patch(
-        "src.services.device_actions._invoke_phone_reboot",
+        "asterisk_phone_management.services.device_actions._invoke_phone_reboot",
         return_value=True,
     )
 
@@ -234,19 +263,20 @@ def test_reboot_phone_flow(mocker: MockerFixture) -> None:
 
 def test_reboot_phone_failure(mocker: MockerFixture) -> None:
     mocker.patch(
-        "src.services.device_actions.search_for_extension",
+        "asterisk_phone_management.services.device_actions.search_for_extension",
         return_value=["match"],
     )
     mocker.patch(
-        "src.services.device_actions.get_mac_from_ext",
+        "asterisk_phone_management.services.device_actions.get_mac_from_ext",
         return_value="112233445566",
     )
     mocker.patch(
-        "src.services.device_actions._get_ip_address",
+        "asterisk_phone_management.services.device_actions._get_ip_address",
         return_value="192.168.1.100",
     )
     mocker.patch(
-        "src.services.device_actions._invoke_phone_reboot", return_value=False
+        "asterisk_phone_management.services.device_actions._invoke_phone_reboot",
+        return_value=False,
     )
 
     with pytest.raises(

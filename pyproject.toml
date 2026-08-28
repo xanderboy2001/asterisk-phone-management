@@ -109,5 +109,5 @@ addopts = [
   "--cov-report=term-missing",
 ]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = ["src"]
 filterwarnings = ["error", "ignore::DeprecationWarning"]

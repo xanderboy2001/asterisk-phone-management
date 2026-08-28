@@ -61,8 +61,10 @@ def test_print_phone_table_renders(
 
 
 def test_view_active_calls_keyboard_interrupt(mocker: MockerFixture) -> None:
-    mocker.patch("src.cli.views.get_active_calls", return_value=[])
-    mocker.patch("src.cli.views.Live")
+    mocker.patch(
+        "asterisk_phone_management.cli.views.get_active_calls", return_value=[]
+    )
+    mocker.patch("asterisk_phone_management.cli.views.Live")
     mocker.patch("time.sleep", side_effect=KeyboardInterrupt)
 
     view_active_calls()

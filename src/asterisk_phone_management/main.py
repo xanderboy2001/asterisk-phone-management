@@ -172,7 +172,3 @@ def main() -> None:
         except AsteriskCliError as err:
             log.error("Operation failed: %s", err)
         console.print()
-
-
-if __name__ == "__main__":
-    main()
