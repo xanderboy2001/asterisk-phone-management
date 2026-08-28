@@ -16,3 +16,4 @@ scripts/
 repomix-output.xml
 daily_queue_stats_new.py
 send_queue_stats.sh
+.env
