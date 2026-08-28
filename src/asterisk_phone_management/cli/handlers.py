@@ -9,6 +9,7 @@ from asterisk_phone_management.cli.prompts import (
     read_mac_addr,
     read_name,
     read_new_password,
+    read_search_query,
 )
 from asterisk_phone_management.core.globals import log
 from asterisk_phone_management.schemas.models import Phone, Voicemail
@@ -19,6 +20,7 @@ from asterisk_phone_management.services.provisioning import (
     replace_phone,
 )
 from asterisk_phone_management.services.search import (
+    search_for_caller_id,
     search_for_extension,
     search_for_mac_address,
 )
@@ -35,6 +37,12 @@ def handle_search_for_mac_address() -> None:
     """Prompt the user for a MAC address and search configuration files."""
     mac: str = read_mac_addr()
     search_for_mac_address(mac)
+
+
+def handle_search_for_caller_id() -> None:
+    """Prompt the user for a caller ID and search configuration files."""
+    caller_id: str = read_search_query()
+    search_for_caller_id(caller_id)
 
 
 def handle_register_phone() -> None:

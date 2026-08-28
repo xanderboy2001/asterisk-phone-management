@@ -13,6 +13,7 @@ from asterisk_phone_management.cli.handlers import (
     handle_remove_phone,
     handle_replace_phone,
     handle_reset_vm_password,
+    handle_search_for_caller_id,
     handle_search_for_extension,
     handle_search_for_mac_address,
 )
@@ -40,6 +41,11 @@ MENU_OPTIONS: list[Choice] = [
         title="Search for MAC Address",
         description="Search config and xml files for a given MAC address.",
         value=handle_search_for_mac_address,
+    ),
+    Choice(
+        title="Search for Caller ID",
+        description="Search sip.conf for a given caller ID.",
+        value=handle_search_for_caller_id,
     ),
     Choice(
         title="Register Phone",

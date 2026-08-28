@@ -80,6 +80,13 @@ def _is_extensions_mac_match(line_text: str, mac_address: str) -> bool:
     return f"SIP/SEP{mac_address}" in line_text
 
 
+def _is_caller_id_match(line_text: str, caller_id: str) -> bool:
+    lower_line: str = line_text.lower()
+    lower_caller_id: str = caller_id.lower()
+
+    return lower_line.startswith("callerid=") and lower_caller_id in lower_line
+
+
 def _log_and_collect_matches(
     matches: Iterable[ConfigMatch],
 ) -> list[ConfigMatch]:
@@ -275,6 +282,41 @@ def search_for_mac_address(mac_address: str) -> list[ConfigMatch]:
         log.warning(
             "No reference to MAC address %s found in the config files.",
             mac_address,
+        )
+
+    return all_matches
+
+
+def search_for_caller_id(caller_id: str) -> list[ConfigMatch]:
+    """Search sip.conf for a given caller ID.
+
+    Args:
+        caller_id: The caller ID to search for.
+
+    Returns:
+        List of ConfigMatch dataclasses representing matches found.
+    """
+    all_matches: list[ConfigMatch] = []
+
+    with SIP_CONF.open(mode="r", encoding="utf-8") as file:
+        for line_number, line_text in enumerate(file, start=1):
+            if _is_caller_id_match(line_text, caller_id):
+                all_matches.extend(
+                    _log_and_collect_matches(
+                        [
+                            ConfigMatch(
+                                file_path=SIP_CONF,
+                                line_number=line_number,
+                                matched_text=line_text,
+                            )
+                        ]
+                    )
+                )
+
+    if not all_matches:
+        log.warning(
+            "No references to caller ID '%s' were found in sip.conf.",
+            caller_id,
         )
 
     return all_matches

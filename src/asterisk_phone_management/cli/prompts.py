@@ -199,6 +199,25 @@ def read_new_password(extension: str) -> str:
     return new_password
 
 
+def read_search_query() -> str:
+    """Read search query from user input.
+
+    Returns:
+        The search query.
+
+    Raises:
+        AsteriskCliError: If no search query is provided.
+    """
+    query = questionary.text(message="Enter the search term:").ask()
+
+    if not query:
+        msg = "No search query provided."
+        log.error(msg)
+        raise AsteriskCliError(msg)
+
+    return query
+
+
 def prompt_search_method() -> Literal["ext", "mac"]:
     """Prompt user to choose between extension or MAC address search.
 
