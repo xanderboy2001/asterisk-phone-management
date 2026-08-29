@@ -1,14 +1,9 @@
 """Unit tests for interactive CLI prompts."""
 
-from pathlib import Path
-
 import pytest
 from pytest_mock import MockerFixture
 
 from asterisk_phone_management.cli.prompts import (
-    _log_results,
-    prompt_search_extension,
-    prompt_search_mac,
     prompt_search_method,
     prompt_use_voicemail,
     read_caller_id,
@@ -20,68 +15,6 @@ from asterisk_phone_management.cli.prompts import (
     read_search_query,
 )
 from asterisk_phone_management.core.exceptions import AsteriskCliError
-from asterisk_phone_management.schemas.models import ConfigMatch
-
-
-def test_log_results_empty(mocker: MockerFixture) -> None:
-    mock_log_warn = mocker.patch(
-        "asterisk_phone_management.cli.prompts.log.warning"
-    )
-
-    _log_results([], "1001")
-    mock_log_warn.assert_called_once_with("No references found for %s", "1001")
-
-
-def test_log_results_populated(tmp_path: Path, mocker: MockerFixture) -> None:
-    mock_log_info = mocker.patch(
-        "asterisk_phone_management.cli.prompts.log.info"
-    )
-    matches = [
-        ConfigMatch(
-            file_path=tmp_path / "sip.conf",
-            line_number=5,
-            matched_text="matched_data",
-        )
-    ]
-    _log_results(matches, "1001")
-    mock_log_info.assert_called_once()
-
-
-def test_prompt_search_extension(mocker: MockerFixture) -> None:
-    mocker.patch(
-        "asterisk_phone_management.cli.prompts.read_extension",
-        return_value="1001",
-    )
-    mock_search = mocker.patch(
-        "asterisk_phone_management.cli.prompts.search_for_extension",
-        return_value=[],
-    )
-    mock_log = mocker.patch(
-        "asterisk_phone_management.cli.prompts._log_results"
-    )
-
-    prompt_search_extension()
-
-    mock_search.assert_called_once_with("1001")
-    mock_log.assert_called_once_with([], "1001")
-
-
-def test_prompt_search_mac(mocker: MockerFixture) -> None:
-    mocker.patch(
-        "asterisk_phone_management.cli.prompts.read_mac_addr",
-        return_value="AABBCCDDEEFF",
-    )
-    mock_search = mocker.patch(
-        "asterisk_phone_management.cli.prompts.search_for_mac_address",
-        return_value=[],
-    )
-    mock_log = mocker.patch(
-        "asterisk_phone_management.cli.prompts._log_results"
-    )
-
-    prompt_search_mac()
-    mock_search.assert_called_once_with("AABBCCDDEEFF")
-    mock_log.assert_called_once_with([], "AABBCCDDEEFF")
 
 
 def test_read_extension_success(mocker: MockerFixture) -> None:

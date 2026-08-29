@@ -5,60 +5,17 @@ from typing import Literal
 
 import questionary
 
-from asterisk_phone_management.core.exceptions import AsteriskCliError
-from asterisk_phone_management.core.globals import (
+from asterisk_phone_management.core.constants import (
     MINIMUM_VM_PASSWORD_LENGTH,
     log,
 )
+from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.core.validators import (
     validate_email,
     validate_extension,
     validate_mac_addr,
     validate_vm_password,
 )
-from asterisk_phone_management.services.search import (
-    ConfigMatch,
-    search_for_extension,
-    search_for_mac_address,
-)
-
-
-def _log_results(results: list[ConfigMatch], target: str) -> None:
-    """Log configuration file search matches.
-
-    Args:
-        results: List of ConfigMatch instances found.
-        target: Target extension or MAC address string searched for.
-    """
-    if not results:
-        log.warning("No references found for %s", target)
-        return
-
-    for match in results:
-        log.info(
-            "[bold green]Match Found[/bold green] in %s (Line %d): %s",
-            match.file_path.name,
-            match.line_number,
-            match.matched_text,
-        )
-
-
-def prompt_search_extension() -> None:
-    """Prompt the user for an extension and log search matches."""
-    target = read_extension()
-
-    results = search_for_extension(target)
-
-    _log_results(results, target)
-
-
-def prompt_search_mac() -> None:
-    """Prompt the user for a MAC address and log search matches."""
-    target = read_mac_addr()
-
-    results = search_for_mac_address(target)
-
-    _log_results(results, target)
 
 
 def read_extension() -> str:

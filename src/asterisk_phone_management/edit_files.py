@@ -8,15 +8,15 @@ from pathlib import Path
 import questionary
 from questionary import Choice
 
-from asterisk_phone_management.core.exceptions import (
-    AsteriskCliError,
-    FileTransactionError,
-)
-from asterisk_phone_management.core.globals import (
+from asterisk_phone_management.core.constants import (
     EXTENSIONS_CONF,
     SIP_CONF,
     VOICEMAIL_CONF,
     log,
+)
+from asterisk_phone_management.core.exceptions import (
+    AsteriskCliError,
+    FileTransactionError,
 )
 from asterisk_phone_management.core.transactions import ConfigTransaction
 

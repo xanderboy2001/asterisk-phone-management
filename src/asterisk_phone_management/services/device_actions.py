@@ -6,15 +6,15 @@ import subprocess
 
 import pexpect
 
+from asterisk_phone_management.core.constants import (
+    PHONE_SSH_PASS,
+    PHONE_SSH_USER,
+    log,
+)
 from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     AsteriskServiceError,
     DeviceCommunicationError,
-)
-from asterisk_phone_management.core.globals import (
-    PHONE_SSH_PASS,
-    PHONE_SSH_USER,
-    log,
 )
 from asterisk_phone_management.helpers import get_mac_from_ext
 from asterisk_phone_management.schemas.models import ActiveCall

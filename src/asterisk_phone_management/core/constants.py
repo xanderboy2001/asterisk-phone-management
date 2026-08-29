@@ -56,4 +56,4 @@ logging.basicConfig(
     handlers=[RichHandler(console=console, rich_tracebacks=True, markup=True)],
 )
 
-log: logging.Logger = logging.getLogger("rich")
+log: logging.Logger = logging.getLogger("Asterisk Phone Management")

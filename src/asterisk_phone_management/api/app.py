@@ -8,8 +8,6 @@ from fastapi import FastAPI
 
 from asterisk_phone_management.api.routes.search import router as search_router
 
-BASE_PATH = "/api/v1"
-
 app = FastAPI(
     title="Asterisk Management API",
     description="An API to manage and search the Asterisk Phone system.",

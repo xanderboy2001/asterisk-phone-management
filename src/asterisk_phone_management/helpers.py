@@ -7,8 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from asterisk_phone_management.core.constants import TFTPBOOT, log
 from asterisk_phone_management.core.exceptions import AsteriskCliError
-from asterisk_phone_management.core.globals import TFTPBOOT, log
 from asterisk_phone_management.schemas.models import ConfigMatch
 
 

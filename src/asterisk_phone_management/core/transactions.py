@@ -6,8 +6,8 @@ from pathlib import Path
 from types import TracebackType
 from typing import Self
 
+from asterisk_phone_management.core.constants import log
 from asterisk_phone_management.core.exceptions import FileTransactionError
-from asterisk_phone_management.core.globals import log
 from asterisk_phone_management.helpers import backup_config_file
 
 

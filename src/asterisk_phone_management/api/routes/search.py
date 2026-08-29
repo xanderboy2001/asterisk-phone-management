@@ -21,8 +21,6 @@ from asterisk_phone_management.services.search import (
 
 router = APIRouter()
 
-SEARCH_PATH = "api/v1/search"
-
 
 @router.get(
     "/extension/{extension}",

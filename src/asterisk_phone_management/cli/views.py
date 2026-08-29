@@ -7,7 +7,7 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 
-from asterisk_phone_management.core.globals import console, log
+from asterisk_phone_management.core.constants import console, log
 from asterisk_phone_management.schemas.models import (
     ActiveCall,
     Phone,

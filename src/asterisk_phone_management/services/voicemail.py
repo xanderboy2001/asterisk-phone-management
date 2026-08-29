@@ -2,11 +2,11 @@
 
 import re
 
+from asterisk_phone_management.core.constants import VOICEMAIL_CONF, log
 from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     FileTransactionError,
 )
-from asterisk_phone_management.core.globals import VOICEMAIL_CONF, log
 from asterisk_phone_management.core.transactions import ConfigTransaction
 from asterisk_phone_management.services.search import search_for_extension
 

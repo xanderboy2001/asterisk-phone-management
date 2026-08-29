@@ -3,7 +3,7 @@
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-from asterisk_phone_management.core.globals import (
+from asterisk_phone_management.core.constants import (
     EXTENSIONS_CONF,
     SIP_CONF,
     TFTPBOOT,

@@ -8,18 +8,18 @@ import questionary
 
 from asterisk_phone_management.cli.prompts import read_mac_addr
 from asterisk_phone_management.cli.views import print_phone_table
-from asterisk_phone_management.core.exceptions import (
-    AsteriskCliError,
-    AsteriskServiceError,
-    FileTransactionError,
-)
-from asterisk_phone_management.core.globals import (
+from asterisk_phone_management.core.constants import (
     EXTENSIONS_CONF,
     SIP_CONF,
     TFTPBOOT,
     VOICEMAIL_CONF,
     XML_TEMPLATE,
     log,
+)
+from asterisk_phone_management.core.exceptions import (
+    AsteriskCliError,
+    AsteriskServiceError,
+    FileTransactionError,
 )
 from asterisk_phone_management.core.transactions import ConfigTransaction
 from asterisk_phone_management.helpers import (

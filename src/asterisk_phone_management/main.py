@@ -18,8 +18,12 @@ from asterisk_phone_management.cli.handlers import (
     handle_search_for_mac_address,
 )
 from asterisk_phone_management.cli.views import view_active_calls
+from asterisk_phone_management.core.constants import (
+    REQUIRED_FILES,
+    console,
+    log,
+)
 from asterisk_phone_management.core.exceptions import AsteriskCliError
-from asterisk_phone_management.core.globals import REQUIRED_FILES, console, log
 from asterisk_phone_management.edit_files import edit_files
 from asterisk_phone_management.services.device_actions import reload_asterisk
 

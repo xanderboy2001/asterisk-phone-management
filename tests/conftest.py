@@ -65,25 +65,25 @@ def mock_asterisk_env(
     )
 
     monkeypatch.setattr(
-        "asterisk_phone_management.core.globals.ETC_ASTERISK", etc_dir
+        "asterisk_phone_management.core.constants.ETC_ASTERISK", etc_dir
     )
     monkeypatch.setattr(
-        "asterisk_phone_management.core.globals.TFTPBOOT", tftp_dir
+        "asterisk_phone_management.core.constants.TFTPBOOT", tftp_dir
     )
     monkeypatch.setattr(
-        "asterisk_phone_management.core.globals.SIP_CONF", sip_conf
+        "asterisk_phone_management.core.constants.SIP_CONF", sip_conf
     )
     monkeypatch.setattr(
-        "asterisk_phone_management.core.globals.EXTENSIONS_CONF", ext_conf
+        "asterisk_phone_management.core.constants.EXTENSIONS_CONF", ext_conf
     )
     monkeypatch.setattr(
-        "asterisk_phone_management.core.globals.VOICEMAIL_CONF", vm_conf
+        "asterisk_phone_management.core.constants.VOICEMAIL_CONF", vm_conf
     )
     monkeypatch.setattr(
-        "asterisk_phone_management.core.globals.XML_TEMPLATE", xml_template
+        "asterisk_phone_management.core.constants.XML_TEMPLATE", xml_template
     )
     monkeypatch.setattr(
-        "asterisk_phone_management.core.globals.REQUIRED_FILES",
+        "asterisk_phone_management.core.constants.REQUIRED_FILES",
         (sip_conf, ext_conf, vm_conf, xml_template),
     )
 

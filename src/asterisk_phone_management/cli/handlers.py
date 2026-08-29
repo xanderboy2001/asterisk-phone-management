@@ -11,7 +11,7 @@ from asterisk_phone_management.cli.prompts import (
     read_new_password,
     read_search_query,
 )
-from asterisk_phone_management.core.globals import log
+from asterisk_phone_management.core.constants import log
 from asterisk_phone_management.schemas.models import Phone, Voicemail
 from asterisk_phone_management.services.device_actions import reboot_phone
 from asterisk_phone_management.services.provisioning import (
@@ -60,15 +60,21 @@ def handle_register_phone() -> None:
     register_phone(phone, voicemail)
 
 
+def _resolve_search_key(search_method: str) -> str | None:
+    if search_method == "ext":
+        return read_extension()
+    elif search_method == "mac":
+        return read_mac_addr()
+    else:
+        log.error("Invalid search method: %s", search_method)
+        return
+
+
 def handle_remove_phone() -> None:
     """Prompt for search method and key, then remove a phone."""
     search_method = prompt_search_method()
-    if search_method == "ext":
-        search_key = read_extension()
-    elif search_method == "mac":
-        search_key = read_mac_addr()
-    else:
-        log.error("Invalid search method: %s", search_method)
+    search_key = _resolve_search_key(search_method)
+    if not search_key:
         return
     remove_phone(search_method, search_key)
 
@@ -76,12 +82,8 @@ def handle_remove_phone() -> None:
 def handle_replace_phone() -> None:
     """Prompt for search method and key, then replace phone."""
     search_method = prompt_search_method()
-    if search_method == "ext":
-        search_key = read_extension()
-    elif search_method == "mac":
-        search_key = read_mac_addr()
-    else:
-        log.error("Invalid search method: %s", search_method)
+    search_key = _resolve_search_key(search_method)
+    if not search_key:
         return
     replace_phone(search_method, search_key)
 
