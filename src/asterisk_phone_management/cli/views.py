@@ -84,8 +84,8 @@ def _generate_call_table(calls: list[ActiveCall]) -> Table:
     table = Table(
         show_header=True,
         show_footer=True,
-        header_style="bold magenta",
-        footer_style="dim italic",
+        header_style="bold primary",
+        footer_style="dim muted italic",
         expand=True,
     )
 
@@ -130,9 +130,9 @@ def _render_call_panel() -> None:
             table = _generate_call_table(calls)
             panel = Panel(
                 Align.center(table),
-                title="[bold yellow]Active Asterisk Calls[/bold yellow]",
-                subtitle="[dim]Press Ctrl+C to exit[/dim]",
-                border_style="blue",
+                title="[bold warning]Active Asterisk Calls[/bold warning]",
+                subtitle="[muted]Press Ctrl+C to exit[/muted]",
+                border_style="primary",
             )
 
             live.update(panel)

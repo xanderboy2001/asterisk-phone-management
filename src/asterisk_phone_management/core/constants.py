@@ -11,6 +11,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.logging import RichHandler
+from rich.theme import Theme
+
+from asterisk_phone_management.core.theme import DRACULA
 
 # Load environment variables from a .env file if present in the current
 # working directory.
@@ -45,9 +48,23 @@ REQUIRED_FILES: tuple[Path, ...] = (
 )
 
 
+RICH_THEME: Theme = Theme(
+    {
+        "primary": DRACULA.purple,
+        "secondary": DRACULA.comment,
+        "accent": DRACULA.pink,
+        "info": DRACULA.cyan,
+        "success": DRACULA.green,
+        "warning": DRACULA.orange,
+        "danger": DRACULA.red,
+        "muted": DRACULA.comment,
+    }
+)
+
+
 _LOG_FORMAT: str = "%(message)s"
 
-console: Console = Console()
+console: Console = Console(theme=RICH_THEME)
 
 logging.basicConfig(
     level=logging.INFO,
