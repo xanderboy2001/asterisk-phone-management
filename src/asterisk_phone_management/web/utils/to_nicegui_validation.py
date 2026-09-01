@@ -1,3 +1,6 @@
+"""Helper for adapting validator results to NiceGUI's input validation API."""
+
+
 def to_nicegui_validation(result: bool | str) -> str | None:  # ruff: ignore[boolean-type-hint-positional-argument]
     """Convert a validator response into format required by NiceGUI inputs.
 

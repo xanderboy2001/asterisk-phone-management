@@ -17,6 +17,14 @@ from asterisk_phone_management.web.utils.styles import (
 
 @dataclass(frozen=True)
 class CardConfig:
+    """Configuration for a single navigation card on the home page.
+
+    Attributes:
+        icon: Name of the Quasar icon to render.
+        label: Text title displayed on the card.
+        target: Route URL to navigate to when the card's button is clicked.
+    """
+
     icon: str
     label: str
     target: str
@@ -26,7 +34,7 @@ _CARDS: tuple[CardConfig, ...] = (
     CardConfig(icon="phone", label="Search for a Phone", target="/search"),
     CardConfig(
         icon="voicemail",
-        label="Reset Voicemial Password",
+        label="Reset Voicemail Password",
         target="/voicemail-reset",
     ),
     CardConfig(
@@ -38,7 +46,7 @@ _CARDS: tuple[CardConfig, ...] = (
 def _create_card(
     icon: str, card_label: str, page: str, button_label: str = "Open"
 ) -> None:
-    """Renders an action card with an icon, label, an navication button.
+    """Renders an action card with an icon, label, an navigation button.
 
     Args:
         icon: Name of the Quasar icon to render.
@@ -55,6 +63,8 @@ def _create_card(
 
 
 def register_page() -> None:
+    """Register the home page route with NiceGUI."""
+
     @ui.page("/")
     def home_page() -> None:
         """Renders the home page view."""

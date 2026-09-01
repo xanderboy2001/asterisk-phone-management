@@ -37,6 +37,8 @@ _SEARCH_METHODS: dict[_SearchMethod, str] = {
 
 
 def register_page() -> None:
+    """Register the search page route with NiceGUI."""
+
     @ui.page("/search")
     def search_page() -> None:
         """Render the search page view for looking up phone configurations."""
