@@ -138,3 +138,27 @@ def get_ext_from_mac(matches: list[ConfigMatch]) -> str:
     msg = "Could not determine extension from MAC address!"
     log.error(msg)
     raise AsteriskCliError(msg)
+
+
+def get_caller_id_from_ext(matches: list[ConfigMatch]) -> str:
+    """Determine the caller ID string from a list of extension matches.
+
+    Args:
+        matches: List of ConfigMatch objects.
+
+    Returns:
+        The caller ID string extracted from sip.conf.
+
+    Raises:
+        AsteriskCliError: If caller ID directive cannot be found.
+    """
+    for match in matches:
+        if (
+            match.file_path.name == "sip.conf"
+            and match.matched_text.startswith("callerid=")
+        ):
+            return match.matched_text.removeprefix("callerid=")
+
+    msg = "Could not determine caller ID from extension number!"
+    log.error(msg)
+    raise AsteriskCliError(msg)

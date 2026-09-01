@@ -16,6 +16,7 @@ from asterisk_phone_management.core.validators import (
     validate_mac_addr,
     validate_vm_password,
 )
+from asterisk_phone_management.schemas.models import ConfigMatch
 
 
 def read_extension() -> str:
@@ -225,3 +226,57 @@ def prompt_use_voicemail() -> bool:
     ).ask()
     log.debug("Using voicemail: %s", use_voicemail)
     return use_voicemail
+
+
+def prompt_select_caller_id(matches: list[ConfigMatch]) -> list[ConfigMatch]:
+    """Prompt user to select specific caller ID entries from matches.
+
+    Args:
+        matches: List of ConfigMatch instances to choose from.
+
+    Returns:
+        List of selected ConfigMatch instances.
+
+    Raises:
+        KeyboardInterrupt: If the user cancels the selection.
+    """
+    action = questionary.select(
+        message=(
+            "Multiple caller ID entries found. How would you like to proceed?"
+        ),
+        choices=[
+            questionary.Choice(title="Update all occurences", value="all"),
+            questionary.Choice(
+                title="Select specific entries to update", value="select"
+            ),
+            questionary.Choice(title="Cancel operation", value="cancel"),
+        ],
+    ).ask()
+
+    if not action or action == "cancel":
+        msg = "Cancelled by user"
+        raise KeyboardInterrupt(msg)
+
+    if action == "all":
+        return matches
+
+    choices: list[questionary.Choice] = [
+        questionary.Choice(
+            title=f"Line {m.line_number}: {m.matched_text}", value=m
+        )
+        for m in matches
+    ]
+
+    selected_matches = questionary.checkbox(
+        message="Select the caller ID entries to update:",
+        choices=choices,
+        validate=lambda selected: (
+            True if selected else "Select at least one entry."
+        ),
+    ).ask()
+
+    if not selected_matches:
+        msg = "Cancelled by user"
+        raise KeyboardInterrupt(msg)
+
+    return selected_matches

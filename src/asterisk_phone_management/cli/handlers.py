@@ -2,6 +2,7 @@
 
 from asterisk_phone_management.cli.prompts import (
     prompt_search_method,
+    prompt_select_caller_id,
     prompt_use_voicemail,
     read_caller_id,
     read_email,
@@ -12,7 +13,15 @@ from asterisk_phone_management.cli.prompts import (
     read_search_query,
 )
 from asterisk_phone_management.core.constants import log
-from asterisk_phone_management.schemas.models import Phone, Voicemail
+from asterisk_phone_management.core.exceptions import (
+    AsteriskCliError,
+)
+from asterisk_phone_management.schemas.models import (
+    ConfigMatch,
+    Phone,
+    Voicemail,
+)
+from asterisk_phone_management.services.caller_id import edit_caller_id
 from asterisk_phone_management.services.device_actions import reboot_phone
 from asterisk_phone_management.services.provisioning import (
     register_phone,
@@ -99,3 +108,38 @@ def handle_reboot_phone() -> None:
     """Prompt for an extension and send reboot signal to phone."""
     ext: str = read_extension()
     reboot_phone(ext)
+
+
+def handle_edit_caller_id() -> None:
+    """Prompt for extension and caller ID, then edit matching entries.
+
+    Raises:
+        AsteriskCliError: If no matches are found.
+    """
+    extension: str = read_extension()
+    new_caller_id: str = read_caller_id(extension)
+
+    extension_matches: list[ConfigMatch] = search_for_extension(extension)
+
+    if not extension_matches:
+        msg = f"No matches found for {extension}"
+        log.error(msg)
+        raise AsteriskCliError(msg)
+
+    caller_id_matches: list[ConfigMatch] = [
+        match
+        for match in extension_matches
+        if match.file_path.name == "sip.conf"
+        and match.matched_text.startswith("callerid=")
+    ]
+    if not caller_id_matches:
+        msg = f"No caller ID(s) found for {extension}"
+        log.error(msg)
+        raise AsteriskCliError(msg)
+
+    if len(caller_id_matches) == 1:
+        targets = caller_id_matches
+    else:
+        targets = prompt_select_caller_id(caller_id_matches)
+
+    edit_caller_id(targets, new_caller_id)
