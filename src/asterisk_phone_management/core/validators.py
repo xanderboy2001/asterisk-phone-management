@@ -25,6 +25,8 @@ def validate_extension(extension: str) -> bool | str:
     Returns:
         True if extension is valid, otherwise an error message.
     """
+    if not extension:
+        return "Extension cannot be empty."
     if len(extension) != EXTENSION_LENGTH or not extension.isdigit():
         return f"Extension must be {EXTENSION_LENGTH} digits."
 

@@ -7,7 +7,14 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from asterisk_phone_management.core.constants import TFTPBOOT, log
+from asterisk_phone_management.core.constants import (
+    CALLERID_DIRECTIVE,
+    EXTENSIONS_CONF_NAME,
+    SEP_PREFIX,
+    SIP_CONF_NAME,
+    TFTPBOOT,
+    log,
+)
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.schemas.models import ConfigMatch
 
@@ -57,15 +64,20 @@ def backup_config_file(src_config: Path) -> Path:
         The path to the newly created backup.
 
     Raises:
-        FileNotFoundError: If the provided config file was not found.
+        AsteriskCliError: If permissions error occurs when
+            creating backup directory.
     """
     backup_dir: Path = src_config.parent / "backup"
     timestamp: str = datetime.now(tz=ZoneInfo("America/New_York")).strftime(
         "%Y-%m-%d_%H:%M:%S"
     )
-    if not backup_dir.exists():
-        log.error("Backup directory does not exist!")
-        raise FileNotFoundError(backup_dir)
+    try:
+        backup_dir.mkdir(parents=True, exist_ok=True)
+    except PermissionError as e:
+        msg = f"Permission denied creating backup directory: {backup_dir}"
+        log.error(msg)
+        raise AsteriskCliError(msg) from e
+
     backup_path: Path = backup_dir / Path(f"{src_config.name}_{timestamp}")
     copy_file_safe(src=src_config, dst=backup_path)
     log.debug("Backed up '%s'", src_config)
@@ -85,13 +97,13 @@ def get_mac_from_ext(matches: list[ConfigMatch]) -> str:
         AsteriskCliError: If no MAC address can be determined.
     """
     for match in matches:
-        if match.file_path.name == "extensions.conf":
+        if match.file_path.name == EXTENSIONS_CONF_NAME:
             mac_match = re.search(
                 pattern=r"SIP/SEP([A-Fa-f0-9]{12})", string=match.matched_text
             )
             if mac_match:
                 return mac_match.group(1).upper()
-        elif match.file_path.name == "sip.conf":
+        elif match.file_path.name == SIP_CONF_NAME:
             mac_match = re.search(
                 pattern=r"SEP([A-Fa-f0-9]{12})", string=match.matched_text
             )
@@ -101,7 +113,7 @@ def get_mac_from_ext(matches: list[ConfigMatch]) -> str:
             xml_root = ET.parse(match.file_path).getroot()
             name_element = xml_root.find(".//name")
             if name_element is not None and name_element.text:
-                return name_element.text.upper().removeprefix("SEP")
+                return name_element.text.upper().removeprefix(SEP_PREFIX)
 
     msg = "Could not determine MAC address from extension number!"
     log.error(msg)
@@ -128,7 +140,7 @@ def get_ext_from_mac(matches: list[ConfigMatch]) -> str:
             )
             if extension_element is not None and extension_element.text:
                 return extension_element.text
-        elif match.file_path.name == "extensions.conf":
+        elif match.file_path.name == EXTENSIONS_CONF_NAME:
             ext_match = re.search(
                 pattern=r"exten\s*=>\s*(\d{4})", string=match.matched_text
             )
@@ -154,10 +166,10 @@ def get_caller_id_from_ext(matches: list[ConfigMatch]) -> str:
     """
     for match in matches:
         if (
-            match.file_path.name == "sip.conf"
-            and match.matched_text.startswith("callerid=")
+            match.file_path.name == SIP_CONF_NAME
+            and match.matched_text.startswith(CALLERID_DIRECTIVE)
         ):
-            return match.matched_text.removeprefix("callerid=")
+            return match.matched_text.removeprefix(CALLERID_DIRECTIVE)
 
     msg = "Could not determine caller ID from extension number!"
     log.error(msg)

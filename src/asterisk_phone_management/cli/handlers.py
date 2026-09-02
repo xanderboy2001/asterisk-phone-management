@@ -12,7 +12,13 @@ from asterisk_phone_management.cli.prompts import (
     read_new_password,
     read_search_query,
 )
-from asterisk_phone_management.core.constants import log
+from asterisk_phone_management.core.constants import (
+    CALLERID_DIRECTIVE,
+    SEARCH_BY_EXTENSION,
+    SEARCH_BY_MAC,
+    SIP_CONF_NAME,
+    log,
+)
 from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
 )
@@ -70,9 +76,19 @@ def handle_register_phone() -> None:
 
 
 def _resolve_search_key(search_method: str) -> str | None:
-    if search_method == "ext":
+    """Resolve the search key based on the search method.
+
+    Args:
+        search_method: Either "ext" or "mac" to determine which
+            input prompt to use.
+
+    Returns:
+        The validated search key string, or None if the search
+            method is invalid.
+    """
+    if search_method == SEARCH_BY_EXTENSION:
         return read_extension()
-    elif search_method == "mac":
+    elif search_method == SEARCH_BY_MAC:
         return read_mac_addr()
     else:
         log.error("Invalid search method: %s", search_method)
@@ -129,8 +145,8 @@ def handle_edit_caller_id() -> None:
     caller_id_matches: list[ConfigMatch] = [
         match
         for match in extension_matches
-        if match.file_path.name == "sip.conf"
-        and match.matched_text.startswith("callerid=")
+        if match.file_path.name == SIP_CONF_NAME
+        and match.matched_text.startswith(CALLERID_DIRECTIVE)
     ]
     if not caller_id_matches:
         msg = f"No caller ID(s) found for {extension}"

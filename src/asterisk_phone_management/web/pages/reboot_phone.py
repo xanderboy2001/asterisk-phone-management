@@ -59,11 +59,12 @@ def register_page() -> None:
 
     @ui.page("/reboot-phone")
     def reboot_phone_page() -> None:
+        """Render the reboot phone page."""
         with theme.frame("Reboot Phone"):
             ui.label("Reboot a Phone").classes(HEADING_CLASSES)
 
             with ui.row().classes(
-                "w-full max-w-2x1 mx-auto items-center justify-center gap-2"
+                "w-full max-w-2xl mx-auto items-center justify-center gap-2"
             ):
                 input_obj = extension_input()
                 input_obj.on(

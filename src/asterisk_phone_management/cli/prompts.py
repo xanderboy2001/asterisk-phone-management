@@ -1,12 +1,14 @@
 """Interactive CLI prompts for user interaction."""
 
 import re
-from typing import Literal
 
 import questionary
 
 from asterisk_phone_management.core.constants import (
     MINIMUM_VM_PASSWORD_LENGTH,
+    SEARCH_BY_EXTENSION,
+    SEARCH_BY_MAC,
+    SearchMethod,
     log,
 )
 from asterisk_phone_management.core.exceptions import AsteriskCliError
@@ -176,7 +178,7 @@ def read_search_query() -> str:
     return query
 
 
-def prompt_search_method() -> Literal["ext", "mac"]:
+def prompt_search_method() -> SearchMethod:
     """Prompt user to choose between extension or MAC address search.
 
     Returns:
@@ -189,16 +191,16 @@ def prompt_search_method() -> Literal["ext", "mac"]:
         questionary.Choice(
             title="Extension",
             description="Find the phone to delete using its extension number.",
-            value="ext",
+            value=SEARCH_BY_EXTENSION,
         ),
         questionary.Choice(
             title="MAC Address",
             description="Find the phone to delete using its MAC address.",
-            value="mac",
+            value=SEARCH_BY_MAC,
         ),
     ]
 
-    search_method: Literal["ext", "mac"] | None = questionary.select(
+    search_method: SearchMethod | None = questionary.select(
         message="How would you like to find the phone to delete?",
         choices=search_options,
     ).ask()
@@ -245,7 +247,7 @@ def prompt_select_caller_id(matches: list[ConfigMatch]) -> list[ConfigMatch]:
             "Multiple caller ID entries found. How would you like to proceed?"
         ),
         choices=[
-            questionary.Choice(title="Update all occurences", value="all"),
+            questionary.Choice(title="Update all occurrences", value="all"),
             questionary.Choice(
                 title="Select specific entries to update", value="select"
             ),

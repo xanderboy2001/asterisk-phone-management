@@ -4,6 +4,7 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 
 from asterisk_phone_management.core.constants import (
+    CALLERID_DIRECTIVE,
     EXTENSIONS_CONF,
     SIP_CONF,
     TFTPBOOT,
@@ -12,6 +13,7 @@ from asterisk_phone_management.core.constants import (
 )
 from asterisk_phone_management.schemas.models import ConfigMatch
 
+"""Type alias for callable rules to match lines during config file scanning."""
 MatchRule = Callable[[str, str], bool]
 
 
@@ -81,10 +83,22 @@ def _is_extensions_mac_match(line_text: str, mac_address: str) -> bool:
 
 
 def _is_caller_id_match(line_text: str, caller_id: str) -> bool:
+    """Check if a line contains a caller ID match.
+
+    Args:
+        line_text: Line contents.
+        caller_id: Target caller ID string.
+
+    Returns:
+        True if the line contains a matching caller ID False otherwise.
+    """
     lower_line: str = line_text.lower()
     lower_caller_id: str = caller_id.lower()
 
-    return lower_line.startswith("callerid=") and lower_caller_id in lower_line
+    return (
+        lower_line.startswith(CALLERID_DIRECTIVE)
+        and lower_caller_id in lower_line
+    )
 
 
 def _log_and_collect_matches(
@@ -279,10 +293,11 @@ def search_for_mac_address(mac_address: str) -> list[ConfigMatch]:
     )
 
     if not all_matches:
-        log.warning(
-            "No reference to MAC address %s found in the config files.",
-            mac_address,
+        msg = (
+            f"No reference to MAC address {mac_address}"
+            " found in the config files."
         )
+        log.warning(msg)
 
     return all_matches
 
@@ -301,22 +316,11 @@ def search_for_caller_id(caller_id: str) -> list[ConfigMatch]:
     with SIP_CONF.open(mode="r", encoding="utf-8") as file:
         for line_number, line_text in enumerate(file, start=1):
             if _is_caller_id_match(line_text, caller_id):
-                all_matches.extend(
-                    _log_and_collect_matches(
-                        [
-                            ConfigMatch(
-                                file_path=SIP_CONF,
-                                line_number=line_number,
-                                matched_text=line_text,
-                            )
-                        ]
+                all_matches.append(
+                    ConfigMatch(
+                        file_path=SIP_CONF,
+                        line_number=line_number,
+                        matched_text=line_text,
                     )
                 )
-
-    if not all_matches:
-        log.warning(
-            "No references to caller ID '%s' were found in sip.conf.",
-            caller_id,
-        )
-
-    return all_matches
+    return _log_and_collect_matches(all_matches)

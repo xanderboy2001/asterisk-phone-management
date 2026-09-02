@@ -9,6 +9,7 @@ from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.helpers import (
     backup_config_file,
     copy_file_safe,
+    get_caller_id_from_ext,
     get_ext_from_mac,
     get_mac_from_ext,
 )
@@ -91,11 +92,18 @@ def test_backup_config_file_success(
     assert backup_path.name.startswith("sip.conf_")
 
 
-def test_backup_config_file_missing_backup_dir(tmp_path: Path) -> None:
+def test_backup_config_file_permission_error(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
     config_file = tmp_path / "sip.conf"
     config_file.write_text("data", encoding="utf-8")
+    mocker.patch.object(
+        Path, "mkdir", side_effect=PermissionError("Permission denied")
+    )
 
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(
+        AsteriskCliError, match="Permission denied creating backup directory"
+    ):
         backup_config_file(config_file)
 
 
@@ -159,3 +167,34 @@ def test_get_ext_from_mac_failure(tmp_path: Path) -> None:
         AsteriskCliError, match="Could not determine extension"
     ):
         get_ext_from_mac([invalid_match])
+
+
+def test_get_caller_id_from_ext_success(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """Test get_caller_id_from_ext extracts caller ID from sip.conf."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    sip_conf.write_text(
+        '[general]\n[SEP112233445566](phone)\ncallerid="John Doe" <1001>\n',
+        encoding="utf-8",
+    )
+    match = ConfigMatch(
+        file_path=sip_conf,
+        line_number=4,
+        matched_text='callerid="John Doe" <1001>',
+    )
+    result = get_caller_id_from_ext([match])
+    assert result == '"John Doe" <1001>'
+
+
+def test_get_caller_id_from_ext_failure(tmp_path: Path) -> None:
+    """Test get_caller_id_from_ext raises when no caller ID directive found."""
+    invalid_match = ConfigMatch(
+        file_path=tmp_path / "sip.conf",
+        line_number=1,
+        matched_text="[general]",
+    )
+    with pytest.raises(
+        AsteriskCliError, match="Could not determine caller ID"
+    ):
+        get_caller_id_from_ext([invalid_match])

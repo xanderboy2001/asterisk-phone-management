@@ -1,8 +1,12 @@
 """Unit tests for CLI user command handlers."""
 
+from pathlib import Path
+
+import pytest
 from pytest_mock import MockerFixture
 
 from asterisk_phone_management.cli.handlers import (
+    handle_edit_caller_id,
     handle_reboot_phone,
     handle_register_phone,
     handle_remove_phone,
@@ -12,7 +16,12 @@ from asterisk_phone_management.cli.handlers import (
     handle_search_for_extension,
     handle_search_for_mac_address,
 )
-from asterisk_phone_management.schemas.models import Phone, Voicemail
+from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.schemas.models import (
+    ConfigMatch,
+    Phone,
+    Voicemail,
+)
 
 
 def test_handle_search_for_extension(mocker: MockerFixture) -> None:
@@ -259,3 +268,119 @@ def test_handle_reboot_phone(mocker: MockerFixture) -> None:
     handle_reboot_phone()
 
     mock_reboot.assert_called_once_with("1001")
+
+
+def test_handle_edit_caller_id_single_match(mocker: MockerFixture) -> None:
+    """Test handle_edit_caller_id with a single caller ID match."""
+    mocker.patch(
+        "asterisk_phone_management.cli.handlers.read_extension",
+        return_value="1001",
+    )
+    mocker.patch(
+        "asterisk_phone_management.cli.handlers.read_caller_id",
+        return_value='"New Name" <1001>',
+    )
+    mock_search = mocker.patch(
+        "asterisk_phone_management.cli.handlers.search_for_extension",
+        return_value=[
+            ConfigMatch(
+                file_path=Path("sip.conf"),
+                line_number=5,
+                matched_text='callerid="Old Name" <1001>',
+            )
+        ],
+    )
+    mock_edit = mocker.patch(
+        "asterisk_phone_management.cli.handlers.edit_caller_id"
+    )
+
+    handle_edit_caller_id()
+
+    mock_edit.assert_called_once_with(
+        mock_search.return_value, '"New Name" <1001>'
+    )
+
+
+def test_handle_edit_caller_id_no_extension_matches(
+    mocker: MockerFixture,
+) -> None:
+    """Test handle_edit_caller_id raises when no extension matches found."""
+    mocker.patch(
+        "asterisk_phone_management.cli.handlers.read_extension",
+        return_value="9999",
+    )
+    mocker.patch(
+        "asterisk_phone_management.cli.handlers.read_caller_id",
+        return_value='"New Name" <9999>',
+    )
+    mocker.patch(
+        "asterisk_phone_management.cli.handlers.search_for_extension",
+        return_value=[],
+    )
+
+    with pytest.raises(AsteriskCliError, match="No matches found for 9999"):
+        handle_edit_caller_id()
+
+
+def test_handle_edit_caller_id_no_caller_id_matches(
+    mocker: MockerFixture,
+) -> None:
+    """Test handle_edit_caller_id raises when no caller ID directive found."""
+    mocker.patch(
+        "asterisk_phone_management.cli.handlers.read_extension",
+        return_value="1001",
+    )
+    mocker.patch(
+        "asterisk_phone_management.cli.handlers.read_caller_id",
+        return_value='"New Name" <1001>',
+    )
+    mocker.patch(
+        "asterisk_phone_management.cli.handlers.search_for_extension",
+        return_value=[
+            ConfigMatch(
+                file_path=Path("extensions.conf"),
+                line_number=5,
+                matched_text="some other content",
+            )
+        ],
+    )
+
+    with pytest.raises(AsteriskCliError, match="No caller ID"):
+        handle_edit_caller_id()
+
+
+def test_handle_edit_caller_id_multiple_matches_prompts(
+    mocker: MockerFixture,
+) -> None:
+    """Test handle_edit_caller_id with multiple caller ID matches prompts user."""
+    mocker.patch(
+        "asterisk_phone_management.cli.handlers.read_extension",
+        return_value="1001",
+    )
+    mocker.patch(
+        "asterisk_phone_management.cli.handlers.read_caller_id",
+        return_value='"New Name" <1001>',
+    )
+    mocker.patch(
+        "asterisk_phone_management.cli.handlers.search_for_extension",
+        return_value=[
+            ConfigMatch(
+                file_path=Path("sip.conf"),
+                line_number=5,
+                matched_text='callerid="Old Name 1" <1001>',
+            ),
+            ConfigMatch(
+                file_path=Path("sip.conf"),
+                line_number=10,
+                matched_text='callerid="Old Name 2" <1001>',
+            ),
+        ],
+    )
+    mock_prompt = mocker.patch(
+        "asterisk_phone_management.cli.handlers.prompt_select_caller_id",
+    )
+    mocker.patch("asterisk_phone_management.cli.handlers.edit_caller_id")
+
+    handle_edit_caller_id()
+
+    mock_prompt.assert_called_once()

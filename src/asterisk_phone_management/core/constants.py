@@ -7,6 +7,7 @@ configuration used across the Asterisk phone management tool.
 import logging
 import os
 from pathlib import Path
+from typing import Final, Literal
 
 from dotenv import load_dotenv
 from rich.console import Console
@@ -46,6 +47,27 @@ REQUIRED_FILES: tuple[Path, ...] = (
     VOICEMAIL_CONF,
     XML_TEMPLATE,
 )
+
+# Config file names (basename only)
+SIP_CONF_NAME: Final[str] = "sip.conf"
+EXTENSIONS_CONF_NAME: Final[str] = "extensions.conf"
+VOICEMAIL_CONF_NAME: Final[str] = "voicemail.conf"
+XML_CONFIG_EXTENSION: Final[str] = ".cnf.xml"
+
+# SIP configuration directives
+CALLERID_DIRECTIVE: Final[str] = "callerid="
+
+# Cisco SEP device prefix
+SEP_PREFIX: Final[str] = "SEP"
+
+# Voicemail mailbox context
+MAILBOX_CONTEXT: Final[str] = "default"
+
+# Search method identifiers
+SearchMethod = Literal["ext", "mac", "callerid"]
+SEARCH_BY_EXTENSION: Final[SearchMethod] = "ext"
+SEARCH_BY_MAC: Final[SearchMethod] = "mac"
+SEARCH_BY_CALLER_ID: Final[SearchMethod] = "callerid"
 
 
 RICH_THEME: Theme = Theme(

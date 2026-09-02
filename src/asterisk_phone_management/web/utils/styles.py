@@ -10,7 +10,7 @@ the CLI's Rich theme in `core/constants.py`.
 from asterisk_phone_management.core.theme import DRACULA
 
 HEADING_CLASSES: str = (
-    f"text-2x1 font-bold mt-8 mb-6 mx-auto text-center"
+    f"text-2xl font-bold mt-8 mb-6 mx-auto text-center"
     f" text-[{DRACULA.foreground}]"
 )
 

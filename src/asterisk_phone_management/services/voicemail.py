@@ -2,7 +2,11 @@
 
 import re
 
-from asterisk_phone_management.core.constants import VOICEMAIL_CONF, log
+from asterisk_phone_management.core.constants import (
+    VOICEMAIL_CONF,
+    VOICEMAIL_CONF_NAME,
+    log,
+)
 from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     FileTransactionError,
@@ -28,7 +32,7 @@ def reset_vm_password(extension: str, new_pin: str) -> None:
     voicemail_match = [
         match
         for match in extension_matches
-        if match.file_path.name == "voicemail.conf"
+        if match.file_path.name == VOICEMAIL_CONF_NAME
     ]
 
     if not voicemail_match:

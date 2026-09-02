@@ -10,9 +10,14 @@ from asterisk_phone_management.cli.prompts import read_mac_addr
 from asterisk_phone_management.cli.views import print_phone_table
 from asterisk_phone_management.core.constants import (
     EXTENSIONS_CONF,
+    MAILBOX_CONTEXT,
+    SEARCH_BY_EXTENSION,
+    SEARCH_BY_MAC,
+    SEP_PREFIX,
     SIP_CONF,
     TFTPBOOT,
     VOICEMAIL_CONF,
+    XML_CONFIG_EXTENSION,
     XML_TEMPLATE,
     log,
 )
@@ -24,6 +29,7 @@ from asterisk_phone_management.core.exceptions import (
 from asterisk_phone_management.core.transactions import ConfigTransaction
 from asterisk_phone_management.helpers import (
     copy_file_safe,
+    get_caller_id_from_ext,
     get_ext_from_mac,
     get_mac_from_ext,
 )
@@ -92,7 +98,7 @@ def _remove_sip_section(sip_conf: Path, mac_address: str) -> None:
     new_lines: list[str] = []
     skip: bool = False
 
-    target_header: str = f"[SEP{mac_address}]".upper()
+    target_header: str = f"[{SEP_PREFIX}{mac_address}]".upper()
 
     for line in lines:
         stripped: str = line.strip()
@@ -152,7 +158,7 @@ def _deprovision_phone(extension: str, mac_address: str) -> None:
             three config files are rolled back to their prior state
             before this is raised.
     """
-    xml_path = TFTPBOOT / f"SEP{mac_address}.cnf.xml"
+    xml_path = TFTPBOOT / f"{SEP_PREFIX}{mac_address}{XML_CONFIG_EXTENSION}"
 
     try:
         with ConfigTransaction((SIP_CONF, EXTENSIONS_CONF, VOICEMAIL_CONF)):
@@ -160,7 +166,7 @@ def _deprovision_phone(extension: str, mac_address: str) -> None:
             _remove_extension_lines(EXTENSIONS_CONF, extension)
             _remove_voicemail_entry(VOICEMAIL_CONF, extension)
             _remove_cnf_xml(xml_path)
-    except OSError as err:
+    except (OSError, AsteriskCliError) as err:
         msg = f"File system error during phone deprovisioning: {err}"
         raise AsteriskServiceError(msg) from err
 
@@ -201,19 +207,21 @@ def _write_provisioning_files(
         created_files: Tracking list for generated files, appended to as
             new files are created.
     """
-    cnf_path = TFTPBOOT / f"SEP{phone.mac_address}.cnf.xml"
+    cnf_path = TFTPBOOT / (
+        f"{SEP_PREFIX}{phone.mac_address}{XML_CONFIG_EXTENSION}"
+    )
     _generate_cnf_xml(extension=phone.extension, mac_address=phone.mac_address)
     created_files.append(cnf_path)
 
     sip_content: str = (
-        f"\n[SEP{phone.mac_address}](phone)\n"
-        f"authname=SEP{phone.mac_address}\n"
-        f"secret=SEP{phone.mac_address}\n"
+        f"\n[{SEP_PREFIX}{phone.mac_address}](phone)\n"
+        f"authname={SEP_PREFIX}{phone.mac_address}\n"
+        f"secret={SEP_PREFIX}{phone.mac_address}\n"
         f"caller_id={phone.caller_id}\n"
     )
 
     if voicemail:
-        sip_content += f"mailbox={phone.extension}@default\n"
+        sip_content += f"mailbox={phone.extension}@{MAILBOX_CONTEXT}\n"
 
     sip_content += "\n"
 
@@ -222,7 +230,7 @@ def _write_provisioning_files(
     _patch_file(
         EXTENSIONS_CONF,
         f"exten => {phone.extension}"
-        f",1,Dial(SIP/SEP{phone.mac_address},14,t)\n",
+        f",1,Dial(SIP/{SEP_PREFIX}{phone.mac_address},14,t)\n",
     )
 
     if voicemail:
@@ -294,7 +302,9 @@ def _generate_cnf_xml(extension: str, mac_address: str) -> None:
         extension: The extension of the new phone.
         mac_address: The MAC address of the new phone.
     """
-    new_cnf_xml: Path = TFTPBOOT / f"SEP{mac_address}.cnf.xml"
+    new_cnf_xml: Path = TFTPBOOT / (
+        f"{SEP_PREFIX}{mac_address}{XML_CONFIG_EXTENSION}"
+    )
 
     copy_file_safe(src=XML_TEMPLATE, dst=new_cnf_xml)
 
@@ -312,7 +322,7 @@ def _generate_cnf_xml(extension: str, mac_address: str) -> None:
     _patch_cnf_xml(
         file_path=new_cnf_xml,
         placeholder="--SEPMAC--",
-        new_value=f"SEP{mac_address}",
+        new_value=f"{SEP_PREFIX}{mac_address}",
     )
     log.debug(
         "Patched MAC address '%s' into new .cnf.xml file '%s'.",
@@ -381,27 +391,31 @@ def remove_phone(search_method: str, search_key: str) -> None:
     mac_address: str = ""
     found: list[ConfigMatch] = []
 
-    if search_method == "ext":
+    if search_method == SEARCH_BY_EXTENSION:
         extension = search_key
         found = search_for_extension(extension)
         if not found:
             msg = f"Could not find phone with extension {extension}."
             raise AsteriskCliError(msg)
         mac_address = get_mac_from_ext(matches=found)
-    elif search_method == "mac":
+        caller_id = get_caller_id_from_ext(matches=found)
+    elif search_method == SEARCH_BY_MAC:
         mac_address = search_key
         found = search_for_mac_address(mac_address)
         if not found:
             msg = f"Could not find phone with MAC address '{mac_address}'."
             raise AsteriskCliError(msg)
         extension = get_ext_from_mac(matches=found)
+        caller_id = get_caller_id_from_ext(
+            matches=search_for_extension(extension)
+        )
     else:
         msg = f"Invalid search method: {search_method}"
         log.error(msg)
         raise AsteriskCliError(msg)
 
     phone_model = Phone(
-        extension=extension, mac_address=mac_address, caller_id=""
+        extension=extension, mac_address=mac_address, caller_id=caller_id
     )
     print_phone_table(phone_model)
 
@@ -434,11 +448,11 @@ def replace_phone(search_method: str, search_key: str) -> None:
     extension: str = ""
     mac_address: str = ""
 
-    if search_method == "ext":
+    if search_method == SEARCH_BY_EXTENSION:
         extension = search_key
         extension_matches: list[ConfigMatch] = search_for_extension(extension)
         mac_address = get_mac_from_ext(extension_matches)
-    elif search_method == "mac":
+    elif search_method == SEARCH_BY_MAC:
         mac_address = search_key
         mac_matches: list[ConfigMatch] = search_for_mac_address(mac_address)
         extension = get_ext_from_mac(mac_matches)
@@ -447,7 +461,9 @@ def replace_phone(search_method: str, search_key: str) -> None:
         log.error(msg)
         raise AsteriskCliError(msg)
 
-    old_cnf_file: Path = TFTPBOOT / f"SEP{mac_address}.cnf.xml"
+    old_cnf_file: Path = TFTPBOOT / (
+        f"{SEP_PREFIX}{mac_address}{XML_CONFIG_EXTENSION}"
+    )
     if old_cnf_file.exists():
         old_cnf_file.unlink()
         log.info("Deleted old .cnf.xml file for SEP%s.", mac_address)

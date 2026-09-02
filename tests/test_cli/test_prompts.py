@@ -1,10 +1,13 @@
 """Unit tests for interactive CLI prompts."""
 
+from pathlib import Path
+
 import pytest
 from pytest_mock import MockerFixture
 
 from asterisk_phone_management.cli.prompts import (
     prompt_search_method,
+    prompt_select_caller_id,
     prompt_use_voicemail,
     read_caller_id,
     read_email,
@@ -15,6 +18,7 @@ from asterisk_phone_management.cli.prompts import (
     read_search_query,
 )
 from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.schemas.models import ConfigMatch
 
 
 def test_read_extension_success(mocker: MockerFixture) -> None:
@@ -156,3 +160,108 @@ def test_prompt_use_voicemail_cancelled_none(mocker: MockerFixture) -> None:
     mock_confirm.return_value.ask.return_value = None
     result = prompt_use_voicemail()
     assert result is None
+
+
+def test_prompt_select_caller_id_all(mocker: MockerFixture) -> None:
+    """Test prompt_select_caller_id returns all matches when 'all' is chosen."""
+    mock_select = mocker.patch("questionary.select")
+    mock_select.return_value.ask.return_value = "all"
+
+    matches = [
+        ConfigMatch(
+            file_path=Path("sip.conf"),
+            line_number=5,
+            matched_text='callerid="John" <1001>',
+        ),
+        ConfigMatch(
+            file_path=Path("sip.conf"),
+            line_number=10,
+            matched_text='callerid="Jane" <1001>',
+        ),
+    ]
+
+    result = prompt_select_caller_id(matches)
+
+    assert result == matches
+
+
+def test_prompt_select_caller_id_cancel(mocker: MockerFixture) -> None:
+    """Test prompt_select_caller_id raises on cancel."""
+    mock_select = mocker.patch("questionary.select")
+    mock_select.return_value.ask.return_value = "cancel"
+
+    matches = [
+        ConfigMatch(
+            file_path=Path("sip.conf"),
+            line_number=5,
+            matched_text='callerid="John" <1001>',
+        )
+    ]
+
+    with pytest.raises(KeyboardInterrupt, match="Cancelled by user"):
+        prompt_select_caller_id(matches)
+
+
+def test_prompt_select_caller_id_cancel_none(mocker: MockerFixture) -> None:
+    """Test prompt_select_caller_id raises on None (user cancelled)."""
+    mock_select = mocker.patch("questionary.select")
+    mock_select.return_value.ask.return_value = None
+
+    matches = [
+        ConfigMatch(
+            file_path=Path("sip.conf"),
+            line_number=5,
+            matched_text='callerid="John" <1001>',
+        )
+    ]
+
+    with pytest.raises(KeyboardInterrupt, match="Cancelled by user"):
+        prompt_select_caller_id(matches)
+
+
+def test_prompt_select_caller_id_specific(mocker: MockerFixture) -> None:
+    """Test prompt_select_caller_id returns user-selected matches."""
+    mock_select = mocker.patch("questionary.select")
+    mock_select.return_value.ask.return_value = "select"
+
+    matches = [
+        ConfigMatch(
+            file_path=Path("sip.conf"),
+            line_number=5,
+            matched_text='callerid="John" <1001>',
+        ),
+        ConfigMatch(
+            file_path=Path("sip.conf"),
+            line_number=10,
+            matched_text='callerid="Jane" <1001>',
+        ),
+    ]
+
+    mock_checkbox = mocker.patch("questionary.checkbox")
+    mock_checkbox.return_value.ask.return_value = [matches[0]]
+
+    result = prompt_select_caller_id(matches)
+
+    assert result == [matches[0]]
+
+
+def test_prompt_select_caller_id_specific_cancelled(
+    mocker: MockerFixture,
+) -> None:
+    """Test prompt_select_caller_id raises when user cancels checkbox."""
+    mock_select = mocker.patch("questionary.select")
+    mock_select.return_value.ask.return_value = "select"
+
+    mock_checkbox = mocker.patch("questionary.checkbox")
+    mock_checkbox.return_value.ask.return_value = None
+
+    matches = [
+        ConfigMatch(
+            file_path=Path("sip.conf"),
+            line_number=5,
+            matched_text='callerid="John" <1001>',
+        )
+    ]
+
+    with pytest.raises(KeyboardInterrupt, match="Cancelled by user"):
+        prompt_select_caller_id(matches)

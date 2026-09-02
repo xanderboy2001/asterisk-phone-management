@@ -16,6 +16,7 @@ from asterisk_phone_management.core.validators import (
         ("1234", True),
         ("0000", True),
         ("9999", True),
+        ("", "Extension cannot be empty."),
         ("123", "Extension must be 4 digits."),
         ("12345", "Extension must be 4 digits."),
         ("abcd", "Extension must be 4 digits."),

@@ -41,7 +41,7 @@ def mock_asterisk_env(
 
     sip_conf.write_text(
         "[general]\n\n[SEP112233445566](phone)\nauthname=SEP112233445566\n"
-        'secret=SEP112233445566\ncaller_id="John Doe" <1001>\nmailbox=1001@default\n',
+        'secret=SEP112233445566\ncallerid="John Doe" <1001>\nmailbox=1001@default\n',
         encoding="utf-8",
     )
     ext_conf.write_text(
@@ -125,6 +125,9 @@ def mock_asterisk_env(
     monkeypatch.setattr(
         "asterisk_phone_management.services.voicemail.VOICEMAIL_CONF",
         vm_conf,
+    )
+    monkeypatch.setattr(
+        "asterisk_phone_management.services.caller_id.SIP_CONF", sip_conf
     )
     monkeypatch.setattr(
         "asterisk_phone_management.edit_files.SIP_CONF", sip_conf

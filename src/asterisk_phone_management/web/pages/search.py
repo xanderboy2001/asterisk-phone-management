@@ -1,12 +1,17 @@
 """Search page component for Asterisk Phone Management."""
 
-from typing import Any, Literal
-
 from nicegui import ui
 from nicegui.elements.input import Input
 from nicegui.elements.radio import Radio
 
+from asterisk_phone_management.core.constants import (
+    SEARCH_BY_CALLER_ID,
+    SEARCH_BY_EXTENSION,
+    SEARCH_BY_MAC,
+    SearchMethod,
+)
 from asterisk_phone_management.core.theme import DRACULA
+from asterisk_phone_management.schemas.models import ConfigMatch
 from asterisk_phone_management.services.search import (
     search_for_caller_id,
     search_for_extension,
@@ -27,13 +32,15 @@ from asterisk_phone_management.web.utils.styles import (
     RESULTS_CONTAINER_CLASSES,
 )
 
-_SearchMethod = Literal["ext", "mac", "callerid"]
-
-_SEARCH_METHODS: dict[_SearchMethod, str] = {
-    "ext": "Search by Extension",
-    "mac": "Search by MAC Address",
-    "callerid": "Search by Caller ID",
+"""Mapping of search method identifiers to display labels."""
+_SEARCH_METHODS: dict[str, str] = {
+    SEARCH_BY_EXTENSION: "Search by Extension",
+    SEARCH_BY_MAC: "Search by MAC Address",
+    SEARCH_BY_CALLER_ID: "Search by Caller ID",
 }
+
+"""Union type for search results returned by the search functions."""
+_SearchResult = ConfigMatch | list[ConfigMatch]
 
 
 def register_page() -> None:
@@ -46,13 +53,13 @@ def register_page() -> None:
             ui.label("Search for a Phone").classes(HEADING_CLASSES)
 
             search_method: Radio = ui.radio(
-                options=_SEARCH_METHODS, value="ext"
+                options=_SEARCH_METHODS, value=SEARCH_BY_EXTENSION
             ).classes(f"flex justify-center mb-4 text-[{DRACULA.foreground}]")
 
             results_container = ui.column().classes(RESULTS_CONTAINER_CLASSES)
 
             def on_search(
-                search_val: str | None, _method: _SearchMethod
+                search_val: str | None, _method: SearchMethod
             ) -> None:
                 """Execute search query based on selected method.
 
@@ -68,18 +75,15 @@ def register_page() -> None:
                     )
                     return
 
-                response_data: list[Any] | None
-                if _method == "ext":
+                response_data: _SearchResult | None = None
+                if _method == SEARCH_BY_EXTENSION:
                     response_data = search_for_extension(extension=search_val)
-                elif _method == "mac":
+                elif _method == SEARCH_BY_MAC:
                     response_data = search_for_mac_address(
                         mac_address=search_val
                     )
-                elif _method == "callerid":
+                elif _method == SEARCH_BY_CALLER_ID:
                     response_data = search_for_caller_id(caller_id=search_val)
-                else:
-                    ui.notify("Invalid search method.", type="warning")
-                    return
 
                 if not response_data:
                     with results_container:
@@ -102,7 +106,7 @@ def register_page() -> None:
 
             def _search_field(
                 field: Input,
-                method: _SearchMethod,
+                method: SearchMethod,
             ) -> None:
                 """Attach search events to the provided input field."""
                 field.on(
@@ -121,14 +125,14 @@ def register_page() -> None:
                     "w-full max-w-2xl mx-auto items-center"
                     " justify-center gap-2"
                 ):
-                    if search_method.value == "ext":
-                        _search_field(extension_input(), "ext")
+                    if search_method.value == SEARCH_BY_EXTENSION:
+                        _search_field(extension_input(), SEARCH_BY_EXTENSION)
 
-                    elif search_method.value == "mac":
-                        _search_field(mac_address_input(), "mac")
+                    elif search_method.value == SEARCH_BY_MAC:
+                        _search_field(mac_address_input(), SEARCH_BY_MAC)
 
-                    elif search_method.value == "callerid":
-                        _search_field(caller_id_input(), "callerid")
+                    elif search_method.value == SEARCH_BY_CALLER_ID:
+                        _search_field(caller_id_input(), SEARCH_BY_CALLER_ID)
 
             search_method.on_value_change(search_form.refresh)
             search_form()

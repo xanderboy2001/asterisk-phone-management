@@ -9,6 +9,7 @@ import pexpect
 from asterisk_phone_management.core.constants import (
     PHONE_SSH_PASS,
     PHONE_SSH_USER,
+    SEP_PREFIX,
     log,
 )
 from asterisk_phone_management.core.exceptions import (
@@ -39,7 +40,7 @@ def _get_ip_address(mac_address: str) -> str:
         DeviceCommunicationError: If the peer's IP address cannot be
             retrieved from Asterisk.
     """
-    sep_mac: str = f"SEP{mac_address}"
+    sep_mac: str = f"{SEP_PREFIX}{mac_address}"
     ip_address: str = ""
     try:
         output = subprocess.run(
@@ -112,12 +113,13 @@ def _invoke_phone_reboot(
         False if authentication failed, a prompt timed out,
             or process spawn failed.
     """
-    ssh_cmd = f"ssh -t {username}@{ip_address}"
-
     log.info("Connecting to %s via SSH...", ip_address)
     try:
         child: pexpect.spawn[str] = pexpect.spawn(
-            command=ssh_cmd, encoding="utf-8", timeout=timeout
+            command="ssh",
+            args=["-t", f"{username}@{ip_address}"],
+            encoding="utf-8",
+            timeout=timeout,
         )
         _send_reboot_command(child, password)
     except (pexpect.TIMEOUT, pexpect.EOF):
@@ -128,9 +130,9 @@ def _invoke_phone_reboot(
     except (pexpect.ExceptionPexpect, OSError) as e:
         log.error("Failed to reboot phone via SSH: %s", e)
         return False
-    else:
-        log.info("Successfully sent reboot command to %s", ip_address)
-        return True
+
+    log.info("Successfully sent reboot command to %s", ip_address)
+    return True
 
 
 def _is_asterisk_running() -> bool:
@@ -240,15 +242,33 @@ def get_active_calls() -> list[ActiveCall]:
         return []
 
     calls: list[ActiveCall] = []
+    parse_errors: int = 0
+
     for line in result.stdout.strip().split("\n"):
         if not line:
             continue
 
         parts = line.split("!")
 
-        if len(parts) >= EXPECTED_FIELD_COUNT:
-            fields = dict(zip(ActiveCall.FIELD_ORDER, parts, strict=False))
-            calls.append(ActiveCall(**fields))
+        if len(parts) < EXPECTED_FIELD_COUNT:
+            parse_errors += 1
+            msg = (
+                "Skipping malformed line "
+                f"(expected {EXPECTED_FIELD_COUNT} fields, got {len(parts)}): "
+                f"{line[:50]}"
+            )
+            log.debug(msg)
+            continue
+
+        fields = dict(zip(ActiveCall.FIELD_ORDER, parts, strict=False))
+        calls.append(ActiveCall(**fields))
+
+    if parse_errors:
+        msg = (
+            f"Skipped {parse_errors} malformed line(s) while "
+            "parsing active calls."
+        )
+        log.warning(msg)
 
     return calls
 
