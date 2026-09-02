@@ -23,8 +23,10 @@ dev = [
   "httpx2>=2.12.0",
   "pre-commit>=4.6.1",
   "pytest>=9.1.1",
+  "pytest-asyncio>=1.4.0",
   "pytest-cov>=7.1.0",
   "pytest-mock>=3.15.1",
+  "pytest-selenium>=4.1.0",
   "ruff>=0.16.1",
   "ty>=0.0.69",
   "types-pexpect>=4.9.0.20260518",
@@ -85,6 +87,7 @@ ignore = ["missing-trailing-comma", "single-line-implicit-string-concatenation"]
   "magic-value-comparison",
   "import-private-name",
   "undocumented-public-function",
+  "unused-lambda-argument",
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -101,6 +104,8 @@ all = "error"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
+asyncio_mode = "auto"
+main_file = "src/asterisk_phone_management/api/app.py"
 addopts = [
   "-ra",
   "-q",
@@ -109,6 +114,8 @@ addopts = [
   "--import-mode=importlib",
   "--cov=src",
   "--cov-report=term-missing",
+  "-p",
+  "nicegui.testing.plugin",
 ]
 testpaths = ["tests"]
 pythonpath = ["src"]
