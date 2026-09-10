@@ -8,6 +8,7 @@ import questionary
 from questionary import Choice
 
 from asterisk_phone_management.cli.handlers import (
+    handle_edit_caller_id,
     handle_reboot_phone,
     handle_register_phone,
     handle_remove_phone,
@@ -70,6 +71,11 @@ MENU_OPTIONS: list[Choice] = [
         title="Reset Voicemail Password",
         description="Reset a voicemail box password.",
         value=handle_reset_vm_password,
+    ),
+    Choice(
+        title="Edit a Caller ID",
+        description="Change a phone's caller ID.",
+        value=handle_edit_caller_id,
     ),
     Choice(
         title="Reboot Phone",

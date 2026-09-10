@@ -40,6 +40,7 @@ _CARDS: tuple[CardConfig, ...] = (
     CardConfig(
         icon="restart_alt", label="Reboot Phone", target="/reboot-phone"
     ),
+    CardConfig(icon="badge", label="Edit Caller ID", target="/edit-caller-id"),
 )
 
 

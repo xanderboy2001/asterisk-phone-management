@@ -3,7 +3,7 @@ name = "asterisk-phone-management"
 version = "0.1.0"
 description = "A Python module to manage the Asterisk Phone system."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
   "fastapi[standard]>=0.141.1",
   "nicegui>=3.16.0",
@@ -42,7 +42,7 @@ entrypoint = "asterisk_phone_management.api.app:app"
 [tool.ruff]
 line-length = 79
 indent-width = 4
-target-version = "py313"
+target-version = "py311"
 
 [tool.ruff.format]
 quote-style = "double"
@@ -94,7 +94,7 @@ ignore = ["missing-trailing-comma", "single-line-implicit-string-concatenation"]
 convention = "google"
 
 [tool.ty.environment]
-python-version = "3.13"
+python-version = "3.11"
 
 [tool.ty.analysis]
 strict-equality-semantics = true

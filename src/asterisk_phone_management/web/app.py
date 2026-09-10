@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from nicegui import ui
 
 from asterisk_phone_management.web.pages import (
+    edit_caller_id,
     home,
     reboot_phone,
     search,
@@ -21,4 +22,5 @@ def mount_ui(app: FastAPI) -> None:
     search.register_page()
     reboot_phone.register_page()
     voicemail_reset.register_page()
+    edit_caller_id.register_page()
     ui.run_with(app=app, title="Asterisk Phone Management", favicon="🔧")

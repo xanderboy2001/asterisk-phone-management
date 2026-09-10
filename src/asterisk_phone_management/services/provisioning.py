@@ -217,7 +217,7 @@ def _write_provisioning_files(
         f"\n[{SEP_PREFIX}{phone.mac_address}](phone)\n"
         f"authname={SEP_PREFIX}{phone.mac_address}\n"
         f"secret={SEP_PREFIX}{phone.mac_address}\n"
-        f"caller_id={phone.caller_id}\n"
+        f"callerid={phone.caller_id}\n"
     )
 
     if voicemail:

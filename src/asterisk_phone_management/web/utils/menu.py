@@ -9,6 +9,7 @@ _NAV_LINKS: tuple[tuple[str, str], ...] = (
     ("Search", "/search"),
     ("VM Reset", "/voicemail-reset"),
     ("Reboot", "/reboot-phone"),
+    ("Edit Caller ID", "/edit-caller-id"),
 )
 
 
