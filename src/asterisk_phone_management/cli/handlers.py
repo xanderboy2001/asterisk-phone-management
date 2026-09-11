@@ -1,7 +1,12 @@
 """CLI handler functions for processing user menu selections."""
 
+from typing import Literal
+
+import questionary
+
 from asterisk_phone_management.cli.prompts import (
     prompt_search_method,
+    prompt_select_call_forwarding_definition,
     prompt_select_caller_id,
     prompt_use_voicemail,
     read_caller_id,
@@ -22,10 +27,15 @@ from asterisk_phone_management.core.constants import (
 from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
 )
+from asterisk_phone_management.helpers import get_call_forwarding_config
 from asterisk_phone_management.schemas.models import (
     ConfigMatch,
     Phone,
     Voicemail,
+)
+from asterisk_phone_management.services.call_forwarding import (
+    forwarding_enabled,
+    toggle_call_forwarding,
 )
 from asterisk_phone_management.services.caller_id import edit_caller_id
 from asterisk_phone_management.services.device_actions import reboot_phone
@@ -159,3 +169,26 @@ def handle_edit_caller_id() -> None:
         targets = prompt_select_caller_id(caller_id_matches)
 
     edit_caller_id(targets, new_caller_id)
+
+
+def handle_toggle_call_forwarding() -> None:
+    """Prompt operator to select a user and toggle their call forwarding."""
+    user = prompt_select_call_forwarding_definition()
+    match = get_call_forwarding_config(user)
+    action: Literal["enable", "disable"]
+
+    if forwarding_enabled(match.matched_text, user):
+        log.info("True")
+        msg = "Call forwarding is enabled. Would you like to disable it?"
+        action = "disable"
+    else:
+        log.info("False")
+        msg = "Call forwarding is disabled. Would you like to enable it?"
+        action = "enable"
+
+    should_continue = questionary.confirm(msg).ask()
+
+    if should_continue:
+        toggle_call_forwarding(user, action)
+    else:
+        log.warning("User cancelled operation.")

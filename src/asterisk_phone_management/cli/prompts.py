@@ -3,11 +3,14 @@
 import re
 
 import questionary
+from questionary import Choice
 
 from asterisk_phone_management.core.constants import (
+    CALL_FORWARDING_USERS,
     MINIMUM_VM_PASSWORD_LENGTH,
     SEARCH_BY_EXTENSION,
     SEARCH_BY_MAC,
+    CallForwardingDefinition,
     SearchMethod,
     log,
 )
@@ -282,3 +285,32 @@ def prompt_select_caller_id(matches: list[ConfigMatch]) -> list[ConfigMatch]:
         raise KeyboardInterrupt(msg)
 
     return selected_matches
+
+
+def prompt_select_call_forwarding_definition() -> CallForwardingDefinition:
+    """Prompt the operator to pick a user from the configured roster.
+
+    Returns:
+        The selected user's call forwarding definition.
+
+    Raises:
+        AsteriskCliError: If the user cancels the prompt.
+    """
+    choices: list[Choice] = [
+        Choice(
+            title=f"{user.name} ({user.extension})",
+            value=user,
+        )
+        for user in CALL_FORWARDING_USERS
+    ]
+
+    selected: CallForwardingDefinition | None = questionary.select(
+        message="Choose a user:", choices=choices
+    ).ask()
+
+    if not selected:
+        msg = "User cancelled interaction."
+        log.error(msg)
+        raise AsteriskCliError(msg)
+
+    return selected

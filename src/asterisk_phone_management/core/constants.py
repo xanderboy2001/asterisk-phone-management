@@ -6,6 +6,7 @@ configuration used across the Asterisk phone management tool.
 
 import logging
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal
 
@@ -82,6 +83,30 @@ RICH_THEME: Theme = Theme(
         "muted": DRACULA.comment,
     }
 )
+
+
+@dataclass(frozen=True)
+class CallForwardingDefinition:
+    """Dataclass to hold call forwarding information for users.
+
+    Attributes:
+        name: Name of the user.
+        extension: User's internal extension.
+        forwarding_number: User's phone number to forward calls to.
+    """
+
+    name: str
+    extension: str
+    forwarding_number: str
+
+
+CALL_FORWARDING_USERS: list[CallForwardingDefinition] = [
+    CallForwardingDefinition(
+        name="Buzz Lightyear",
+        extension="1001",
+        forwarding_number="15555550100",
+    )
+]
 
 
 _LOG_FORMAT: str = "%(message)s"

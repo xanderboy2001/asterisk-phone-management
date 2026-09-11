@@ -17,6 +17,7 @@ from asterisk_phone_management.cli.handlers import (
     handle_search_for_caller_id,
     handle_search_for_extension,
     handle_search_for_mac_address,
+    handle_toggle_call_forwarding,
 )
 from asterisk_phone_management.cli.views import view_active_calls
 from asterisk_phone_management.core.constants import (
@@ -63,6 +64,11 @@ MENU_OPTIONS: list[Choice] = [
         value=handle_remove_phone,
     ),
     Choice(
+        title="Replace Phone",
+        description="Replace a physical phone.",
+        value=handle_replace_phone,
+    ),
+    Choice(
         title="Edit System Files",
         description="Edit an Asterisk config file.",
         value=edit_files,
@@ -78,14 +84,14 @@ MENU_OPTIONS: list[Choice] = [
         value=handle_edit_caller_id,
     ),
     Choice(
+        title="Toggle Call Forwarding",
+        description="Enable or disable call forwarding for a user.",
+        value=handle_toggle_call_forwarding,
+    ),
+    Choice(
         title="Reboot Phone",
         description="Reboot a phone.",
         value=handle_reboot_phone,
-    ),
-    Choice(
-        title="Replace Phone",
-        description="Replace a physical phone.",
-        value=handle_replace_phone,
     ),
     Choice(title="View Active Calls", value=view_active_calls),
     Choice(

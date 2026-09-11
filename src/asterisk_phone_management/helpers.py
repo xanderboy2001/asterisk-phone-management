@@ -9,14 +9,17 @@ from zoneinfo import ZoneInfo
 
 from asterisk_phone_management.core.constants import (
     CALLERID_DIRECTIVE,
+    EXTENSIONS_CONF,
     EXTENSIONS_CONF_NAME,
     SEP_PREFIX,
     SIP_CONF_NAME,
     TFTPBOOT,
+    CallForwardingDefinition,
     log,
 )
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.schemas.models import ConfigMatch
+from asterisk_phone_management.services.search import search_for_extension
 
 
 def copy_file_safe(src: Path, dst: Path) -> None:
@@ -174,3 +177,44 @@ def get_caller_id_from_ext(matches: list[ConfigMatch]) -> str:
     msg = "Could not determine caller ID from extension number!"
     log.error(msg)
     raise AsteriskCliError(msg)
+
+
+def get_call_forwarding_config(user: CallForwardingDefinition) -> ConfigMatch:
+    """Find the user's forwarding line in ``extensions.conf``.
+
+    Args:
+        user: The user whose extension should be located.
+
+    Returns:
+        The single config match for the user's extension.
+
+    Raises:
+        AsteriskCliError: If no match, or more than one match, is found.
+    """
+    extension_matches: list[ConfigMatch] = [
+        match
+        for match in search_for_extension(user.extension)
+        if match.file_path == EXTENSIONS_CONF
+        and user.forwarding_number in match.matched_text
+    ]
+
+    if not extension_matches:
+        msg = f"Could not find any matches for {user.name}."
+        log.error(msg)
+        raise AsteriskCliError(msg)
+
+    if len(extension_matches) > 1:
+        err_msg = (
+            f"Multiple matches found for {user.name}. "
+            "I don't know which one to edit!"
+        )
+        log.error(err_msg)
+        for match in extension_matches:
+            msg = (
+                f"File: {match.file_path} ({match.line_number}): "
+                f"'{match.matched_text}'"
+            )
+            log.error(msg)
+        raise AsteriskCliError(err_msg)
+
+    return extension_matches[0]
