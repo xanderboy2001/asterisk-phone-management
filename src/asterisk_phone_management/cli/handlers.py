@@ -27,7 +27,6 @@ from asterisk_phone_management.core.constants import (
 from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
 )
-from asterisk_phone_management.helpers import get_call_forwarding_config
 from asterisk_phone_management.schemas.models import (
     ConfigMatch,
     Phone,
@@ -174,10 +173,9 @@ def handle_edit_caller_id() -> None:
 def handle_toggle_call_forwarding() -> None:
     """Prompt operator to select a user and toggle their call forwarding."""
     user = prompt_select_call_forwarding_definition()
-    match = get_call_forwarding_config(user)
     action: Literal["enable", "disable"]
 
-    if forwarding_enabled(match.matched_text, user):
+    if forwarding_enabled(user):
         log.info("True")
         msg = "Call forwarding is enabled. Would you like to disable it?"
         action = "disable"

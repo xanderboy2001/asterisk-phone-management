@@ -17,18 +17,16 @@ from asterisk_phone_management.helpers import get_call_forwarding_config
 from asterisk_phone_management.schemas.models import ConfigMatch
 
 
-def forwarding_enabled(
-    matched_text: str, user: CallForwardingDefinition
-) -> bool:
+def forwarding_enabled(user: CallForwardingDefinition) -> bool:
     """Determine whether call forwarding is currently active.
 
     Args:
-        matched_text: The current line contents from ``extensions.conf``.
         user: The user whose forwarding state is being checked.
 
     Returns:
         True if forwarding is enabled, False if it is disabled.
     """
+    matched_text = get_call_forwarding_config(user).matched_text
     forwarding_string: str = f"&SIP/{user.forwarding_number}@cisco_vg"
 
     return not matched_text.endswith(f";{forwarding_string}")

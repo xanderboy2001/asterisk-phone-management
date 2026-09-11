@@ -12,6 +12,8 @@ from asterisk_phone_management.web.utils.inputs import extension_input
 from asterisk_phone_management.web.utils.styles import (
     BUTTON_CLASSES,
     BUTTON_PROPS,
+    BUTTON_PROPS_NEGATIVE,
+    BUTTON_PROPS_POSITIVE,
     HEADING_CLASSES,
 )
 
@@ -32,10 +34,12 @@ async def on_submit(extension: str | None) -> None:
             f"password for {extension}?"
         )
         with ui.row().classes("w-full justify-end"):
-            ui.button("Cancel", on_click=lambda: dialog.submit(result=False))
             ui.button(
-                "Confirm", on_click=lambda: dialog.submit(result=True)
-            ).props("color=negative")
+                "No", on_click=lambda: dialog.submit(result=False)
+            ).classes(BUTTON_CLASSES).props(BUTTON_PROPS_NEGATIVE)
+            ui.button(
+                "Yes", on_click=lambda: dialog.submit(result=True)
+            ).classes(BUTTON_CLASSES).props(BUTTON_PROPS_POSITIVE)
 
     confirmed = await dialog
 

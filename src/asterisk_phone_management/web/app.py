@@ -8,6 +8,7 @@ from asterisk_phone_management.web.pages import (
     home,
     reboot_phone,
     search,
+    toggle_call_forwarding,
     voicemail_reset,
 )
 
@@ -23,4 +24,5 @@ def mount_ui(app: FastAPI) -> None:
     reboot_phone.register_page()
     voicemail_reset.register_page()
     edit_caller_id.register_page()
+    toggle_call_forwarding.register_page()
     ui.run_with(app=app, title="Asterisk Phone Management", favicon="🔧")

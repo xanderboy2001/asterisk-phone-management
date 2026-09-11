@@ -19,6 +19,8 @@ from asterisk_phone_management.web.utils.inputs import (
 from asterisk_phone_management.web.utils.styles import (
     BUTTON_CLASSES,
     BUTTON_PROPS,
+    BUTTON_PROPS_NEGATIVE,
+    BUTTON_PROPS_POSITIVE,
     ERROR_TEXT_CLASSES,
     HEADING_CLASSES,
     RESULT_CARD_CLASSES,
@@ -39,15 +41,15 @@ async def on_submit(
         selected_matches: The ConfigMatch entries selected for update.
     """
     if not extension:
-        ui.notify("No extension!", type="negative")
+        ui.notify("No extension!", type="negative", textColor="dark")
         return
 
     if not new_caller_id:
-        ui.notify("No caller ID!", type="negative")
+        ui.notify("No caller ID!", type="negative", textColor="dark")
         return
 
     if not selected_matches:
-        ui.notify("No entries selected!", type="warning")
+        ui.notify("No entries selected!", type="warning", textColor="dark")
         return
 
     count = len(selected_matches)
@@ -61,11 +63,11 @@ async def on_submit(
         )
         with ui.row().classes("w-full justify-end"):
             ui.button(
-                "Cancel", on_click=lambda: dialog.submit(result=False)
-            ).props("color=negative")
+                "No", on_click=lambda: dialog.submit(result=False)
+            ).classes(BUTTON_CLASSES).props(BUTTON_PROPS_NEGATIVE)
             ui.button(
-                "Confirm", on_click=lambda: dialog.submit(result=True)
-            ).props("color=positive")
+                "Yes", on_click=lambda: dialog.submit(result=True)
+            ).classes(BUTTON_CLASSES).props(BUTTON_PROPS_POSITIVE)
 
     confirmed = await dialog
 
@@ -76,6 +78,7 @@ async def on_submit(
                 f"Successfully set caller ID of {count} entry{plural} "
                 f"for extension {extension} to '{new_caller_id}'.",
                 type="positive",
+                textColor="dark",
             )
         except (AsteriskCliError, FileTransactionError) as e:
             ui.notify(
@@ -83,6 +86,7 @@ async def on_submit(
                 f"to '{new_caller_id}': {e!s}",
                 type="negative",
                 multi_line=True,
+                textColor="dark",
             )
 
 
@@ -165,7 +169,11 @@ def register_page() -> None:
             nonlocal current_matches, selected_flags
 
             if not ext:
-                ui.notify("Please enter an extension.", type="warning")
+                ui.notify(
+                    "Please enter an extension.",
+                    type="warning",
+                    textColor="dark",
+                )
                 return
 
             extension_matches: list[ConfigMatch] = search_for_extension(ext)

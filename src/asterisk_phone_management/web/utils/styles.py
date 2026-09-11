@@ -36,8 +36,10 @@ ERROR_TEXT_CLASSES: str = f"text-[{DRACULA.pink}] p-2"
 INPUT_CLASSES: str = f"flex-grow text-[{DRACULA.foreground}]"
 INPUT_PROPS: str = "autofocus dark label-color=purple-3"
 
-BUTTON_PROPS: str = "color=primary"
-BUTTON_CLASSES: str = f"text-[{DRACULA.background}] font-semibold"
+BUTTON_PROPS: str = "color=primary text-color=dark"
+BUTTON_PROPS_POSITIVE: str = "color=positive text-color=dark"
+BUTTON_PROPS_NEGATIVE: str = "color=negative text-color=dark"
+BUTTON_CLASSES: str = "font-semibold"
 
 LINK_CLASSES: str = (
     f"text-[{DRACULA.foreground}] hover:text-[{DRACULA.purple}]"

@@ -71,7 +71,9 @@ def register_page() -> None:
 
                 if not search_val:
                     ui.notify(
-                        message="Please enter a search value.", type="warning"
+                        message="Please enter a search value.",
+                        type="warning",
+                        textColor="dark",
                     )
                     return
 

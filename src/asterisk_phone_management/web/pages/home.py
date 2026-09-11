@@ -41,6 +41,11 @@ _CARDS: tuple[CardConfig, ...] = (
         icon="restart_alt", label="Reboot Phone", target="/reboot-phone"
     ),
     CardConfig(icon="badge", label="Edit Caller ID", target="/edit-caller-id"),
+    CardConfig(
+        icon="phone_forwarded",
+        label="Toggle Call Forwarding",
+        target="/toggle-call-forwarding",
+    ),
 )
 
 
