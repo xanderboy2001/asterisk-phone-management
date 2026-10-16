@@ -1,3 +1,7 @@
+# Local review artifacts
+*-Repomix.md
+*-review.md
+*-output.txt
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
