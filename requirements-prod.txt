@@ -155,7 +155,7 @@ python-multipart==0.0.32
     # via
     #   fastapi
     #   nicegui
-python-socketio==5.16.4
+python-socketio==5.17.0
     # via nicegui
 pyyaml==6.0.2
     # via uvicorn
