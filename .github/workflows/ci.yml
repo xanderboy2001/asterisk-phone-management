@@ -19,6 +19,10 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - run: uv sync --locked
+      - name: Audit dependencies
+        run: |
+          uv export --locked --no-hashes --no-emit-project --format requirements.txt -o requirements-audit.txt
+          uvx pip-audit -r requirements-audit.txt --no-deps
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run ty check
