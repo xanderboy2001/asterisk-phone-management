@@ -166,7 +166,7 @@ rich==15.0.0
     #   asterisk-phone-management
     #   rich-toolkit
     #   typer
-rich-toolkit==0.20.3
+rich-toolkit==0.20.6
     # via
     #   fastapi-cli
     #   fastapi-cloud-cli
