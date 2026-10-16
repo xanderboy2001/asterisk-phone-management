@@ -43,7 +43,7 @@ async def test_voicemail_reset_confirm_success(
     await user.should_see(
         "Are you sure you want to reset the voicemail password for 1234?"
     )
-    user.find("Confirm").click()
+    user.find(marker="confirm-yes").click()
     await user.should_see("Successfully reset voicemail password for 1234.")
     mock_reset.assert_called_once_with(extension="1234", new_pin="1234")
 
@@ -60,7 +60,7 @@ async def test_voicemail_reset_cancel_does_not_reset(
     await user.should_see(
         "Are you sure you want to reset the voicemail password for 1234?"
     )
-    user.find("Cancel").click()
+    user.find(marker="confirm-no").click()
     mock_reset.assert_not_called()
 
 
@@ -79,7 +79,7 @@ async def test_voicemail_reset_failure(
     await user.should_see(
         "Are you sure you want to reset the voicemail password for 1234?"
     )
-    user.find("Confirm").click()
+    user.find(marker="confirm-yes").click()
     await user.should_see(
         "Failed to reset voicemail password for 1234: disk full"
     )

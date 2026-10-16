@@ -36,10 +36,14 @@ async def on_submit(extension: str | None) -> None:
         with ui.row().classes("w-full justify-end"):
             ui.button(
                 "No", on_click=lambda: dialog.submit(result=False)
-            ).classes(BUTTON_CLASSES).props(BUTTON_PROPS_NEGATIVE)
+            ).classes(BUTTON_CLASSES).props(BUTTON_PROPS_NEGATIVE).mark(
+                "confirm-no"
+            )
             ui.button(
                 "Yes", on_click=lambda: dialog.submit(result=True)
-            ).classes(BUTTON_CLASSES).props(BUTTON_PROPS_POSITIVE)
+            ).classes(BUTTON_CLASSES).props(BUTTON_PROPS_POSITIVE).mark(
+                "confirm-yes"
+            )
 
     confirmed = await dialog
 

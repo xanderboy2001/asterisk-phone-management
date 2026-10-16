@@ -40,7 +40,7 @@ async def test_reboot_confirm_success(
     user.find("Submit").click()
     await user.should_see("Are you sure you want to reboot extension 1234?")
     with user.scope(ui.dialog):
-        user.find("Reboot").click()
+        user.find(marker="confirm-yes").click()
     await user.should_see("Successfully sent reboot command to 1234.")
     mock_reboot.assert_called_once_with("1234")
 
@@ -56,7 +56,7 @@ async def test_reboot_cancel_does_not_reboot(
     user.find("Submit").click()
     await user.should_see("Are you sure you want to reboot extension 1234?")
     with user.scope(ui.dialog):
-        user.find("Cancel").click()
+        user.find(marker="confirm-no").click()
     mock_reboot.assert_not_called()
 
 
@@ -74,7 +74,7 @@ async def test_reboot_device_communication_error(
     user.find("Submit").click()
     await user.should_see("Are you sure you want to reboot extension 1234?")
     with user.scope(ui.dialog):
-        user.find("Reboot").click()
+        user.find(marker="confirm-yes").click()
     await user.should_see("Failed to reboot 1234: SSH timed out")
 
 
@@ -92,5 +92,5 @@ async def test_reboot_generic_cli_error(
     user.find("Submit").click()
     await user.should_see("Are you sure you want to reboot extension 1234?")
     with user.scope(ui.dialog):
-        user.find("Reboot").click()
+        user.find(marker="confirm-yes").click()
     await user.should_see("An unexpected error occurred: boom")
