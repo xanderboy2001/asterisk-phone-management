@@ -8,6 +8,7 @@ from pathlib import Path
 import questionary
 from questionary import Choice
 
+from asterisk_phone_management.cli.prompts import ask
 from asterisk_phone_management.core.constants import (
     EXTENSIONS_CONF,
     SIP_CONF,
@@ -59,16 +60,14 @@ def edit_files() -> None:
         ),
     ]
 
-    selected_file: Path | None = questionary.select(
-        message="Choose a file to edit",
-        choices=file_choices,
-        use_shortcuts=True,
-    ).ask()
-
-    if selected_file is None:
-        log.error("No file selected to edit.")
-        return
-
+    selected_file: Path = ask(
+        questionary.select(
+            message="Choose a file to edit",
+            choices=file_choices,
+            use_shortcuts=True,
+        ),
+        Path,
+    )
     editor = get_editor()
     if not editor:
         msg = "No valid editor found!"

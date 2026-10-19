@@ -105,13 +105,13 @@ def get_mac_from_ext(matches: list[ConfigMatch]) -> str:
                 pattern=r"SIP/SEP([A-Fa-f0-9]{12})", string=match.matched_text
             )
             if mac_match:
-                return mac_match.group(1).upper()
+                return str(mac_match.group(1).upper())
         elif match.file_path.name == SIP_CONF_NAME:
             mac_match = re.search(
                 pattern=r"SEP([A-Fa-f0-9]{12})", string=match.matched_text
             )
             if mac_match:
-                return mac_match.group(1).upper()
+                return str(mac_match.group(1).upper())
         elif match.file_path.suffixes == [".cnf", ".xml"]:
             xml_root = ET.parse(match.file_path).getroot()
             name_element = xml_root.find(".//name")
@@ -148,7 +148,7 @@ def get_ext_from_mac(matches: list[ConfigMatch]) -> str:
                 pattern=r"exten\s*=>\s*(\d{4})", string=match.matched_text
             )
             if ext_match:
-                return ext_match.group(1)
+                return str(ext_match.group(1))
 
     msg = "Could not determine extension from MAC address!"
     log.error(msg)

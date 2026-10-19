@@ -41,7 +41,6 @@ def _get_ip_address(mac_address: str) -> str:
             retrieved from Asterisk.
     """
     sep_mac: str = f"{SEP_PREFIX}{mac_address}"
-    ip_address: str = ""
     try:
         output = subprocess.run(
             ["asterisk", "-rx", f"sip show peer {sep_mac}"],
@@ -49,19 +48,19 @@ def _get_ip_address(mac_address: str) -> str:
             text=True,
             check=True,
         )
-        match: re.Match[str] | None = re.search(
-            pattern=r"(?:Addr->IP|Address-IP)\s*:\s*([0-9]{1,3}(?:\.[0-9]{1,3}){3})",
-            string=output.stdout,
-        )
-
-        if match and match.group(1) != "0.0.0.0":
-            ip_address = match.group(1)
     except subprocess.CalledProcessError as e:
         msg = "Failed to get IP address of phone."
         log.error(msg)
         raise DeviceCommunicationError(msg) from e
 
-    if not ip_address:
+    match: re.Match[str] | None = re.search(
+        pattern=r"(?:Addr->IP|Address-IP)\s*:\s*([0-9]{1,3}(?:\.[0-9]{1,3}){3})",
+        string=output.stdout,
+    )
+    ip_address: str = str(match.group(1)) if match is not None else ""
+
+    # Asterisk reports 0.0.0.0 for a peer that isn't registered.
+    if not ip_address or ip_address == "0.0.0.0":
         msg = f"Could not resolve an IP address for {sep_mac}."
         log.error(msg)
         raise DeviceCommunicationError(msg)
