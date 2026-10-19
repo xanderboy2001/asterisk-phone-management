@@ -117,9 +117,7 @@ def register_page() -> None:
             ):
                 ui.checkbox(
                     value=True,
-                    on_change=lambda e, i=idx: _toggle(
-                        e.value if e.value else True, i
-                    ),
+                    on_change=lambda e, i=idx: _toggle(bool(e.value), i),
                 )
                 with ui.column().classes("flex-grow"):
                     ui.label(
