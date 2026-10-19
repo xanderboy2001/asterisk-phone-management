@@ -118,7 +118,7 @@ addopts = [
   "--cov=asterisk_phone_management",
   "--cov-branch",
   "--cov-report=term-missing:skip-covered",
-  "--cov-fail-under=88",
+  "--cov-fail-under=89",
   "-p",
   "nicegui.testing.user_plugin",
 ]
