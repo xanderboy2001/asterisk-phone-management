@@ -1,5 +1,6 @@
 """Configuration file search utilities for extensions and MAC addresses."""
 
+import re
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
@@ -9,12 +10,31 @@ from asterisk_phone_management.core.constants import (
     SIP_CONF,
     TFTPBOOT,
     VOICEMAIL_CONF,
+    VOICEMAIL_CONF_NAME,
     log,
 )
 from asterisk_phone_management.schemas.models import ConfigMatch
 
+# Matches the mailbox number and the PIN field of a voicemail.conf entry.
+_VM_PIN_RE = re.compile(r"^(\s*\d+\s*=>?\s*)[^,]*")
+
 """Type alias for callable rules to match lines during config file scanning."""
 MatchRule = Callable[[str, str], bool]
+
+
+def _redact_for_log(match: ConfigMatch) -> str:
+    """Return a match's text with any voicemail PIN masked for logging.
+
+    Args:
+        match: The match to prepare for logging.
+
+    Returns:
+        The matched text, with the PIN replaced with ``****`` for
+        voicemail.conf entries.
+    """
+    if match.file_path.name == VOICEMAIL_CONF_NAME:
+        return _VM_PIN_RE.sub(r"\g<1>****", match.matched_text)
+    return match.matched_text
 
 
 def _is_sip_ext_match(line_text: str, extension: str) -> bool:
@@ -118,7 +138,7 @@ def _log_and_collect_matches(
             "[bold green]Match Found[/bold green] in %s (Line %d): %s",
             match.file_path.name,
             match.line_number,
-            match.matched_text,
+            _redact_for_log(match),
         )
         collected.append(match)
     return collected

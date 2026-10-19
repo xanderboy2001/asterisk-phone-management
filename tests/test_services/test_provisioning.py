@@ -1,5 +1,6 @@
 """Unit tests for phone provisioning, deprovisioning, and replacement."""
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -107,6 +108,20 @@ def test_provision_phone_error_cleans_up(
         AsteriskServiceError, match="File system error during registration"
     ):
         _provision_phone(sample_phone, None)
+
+
+def test_provision_phone_does_not_log_secrets(
+    mock_asterisk_env: dict[str, Path],
+    sample_phone: Phone,
+    sample_voicemail: Voicemail,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Debug logs never contain the SIP secret or voicemail details."""
+    del mock_asterisk_env
+    with caplog.at_level(logging.DEBUG):
+        _provision_phone(sample_phone, sample_voicemail)
+    assert "secret=" not in caplog.text
+    assert sample_voicemail.email not in caplog.text
 
 
 def test_deprovision_phone_flow(mock_asterisk_env: dict[str, Path]) -> None:
