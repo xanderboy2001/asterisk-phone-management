@@ -2,6 +2,7 @@
 *-Repomix.md
 *-review.md
 *-output.txt
+requirements-audit.txt
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
