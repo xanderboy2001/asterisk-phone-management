@@ -4,6 +4,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      lint-tools:
+        patterns: ["ruff", "ty"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
