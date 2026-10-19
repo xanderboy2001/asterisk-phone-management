@@ -5,11 +5,19 @@ from pathlib import Path
 
 import pytest
 
+from asterisk_phone_management import edit_files, helpers
+from asterisk_phone_management.core import constants
 from asterisk_phone_management.schemas.models import (
     ActiveCall,
     ConfigMatch,
     Phone,
     Voicemail,
+)
+from asterisk_phone_management.services import (
+    caller_id,
+    provisioning,
+    search,
+    voicemail,
 )
 
 
@@ -64,81 +72,41 @@ def mock_asterisk_env(
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(
-        "asterisk_phone_management.core.constants.ETC_ASTERISK", etc_dir
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.core.constants.TFTPBOOT", tftp_dir
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.core.constants.SIP_CONF", sip_conf
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.core.constants.EXTENSIONS_CONF", ext_conf
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.core.constants.VOICEMAIL_CONF", vm_conf
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.core.constants.XML_TEMPLATE", xml_template
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.core.constants.REQUIRED_FILES",
-        (sip_conf, ext_conf, vm_conf, xml_template),
-    )
-
-    monkeypatch.setattr(
-        "asterisk_phone_management.services.search.SIP_CONF", sip_conf
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.services.search.EXTENSIONS_CONF",
-        ext_conf,
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.services.search.VOICEMAIL_CONF", vm_conf
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.services.search.TFTPBOOT", tftp_dir
-    )
-
-    monkeypatch.setattr(
-        "asterisk_phone_management.services.provisioning.SIP_CONF",
-        sip_conf,
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.services.provisioning.EXTENSIONS_CONF",
-        ext_conf,
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.services.provisioning.VOICEMAIL_CONF",
-        vm_conf,
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.services.provisioning.TFTPBOOT",
-        tftp_dir,
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.services.provisioning.XML_TEMPLATE",
-        xml_template,
-    )
-
-    monkeypatch.setattr(
-        "asterisk_phone_management.services.voicemail.VOICEMAIL_CONF",
-        vm_conf,
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.services.caller_id.SIP_CONF", sip_conf
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.edit_files.SIP_CONF", sip_conf
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.edit_files.EXTENSIONS_CONF", ext_conf
-    )
-    monkeypatch.setattr(
-        "asterisk_phone_management.edit_files.VOICEMAIL_CONF", vm_conf
-    )
-    monkeypatch.setattr("asterisk_phone_management.helpers.TFTPBOOT", tftp_dir)
+    patches: dict[object, dict[str, object]] = {
+        constants: {
+            "ETC_ASTERISK": etc_dir,
+            "TFTPBOOT": tftp_dir,
+            "SIP_CONF": sip_conf,
+            "EXTENSIONS_CONF": ext_conf,
+            "VOICEMAIL_CONF": vm_conf,
+            "XML_TEMPLATE": xml_template,
+            "REQUIRED_FILES": (sip_conf, ext_conf, vm_conf, xml_template),
+        },
+        search: {
+            "SIP_CONF": sip_conf,
+            "EXTENSIONS_CONF": ext_conf,
+            "VOICEMAIL_CONF": vm_conf,
+            "TFTPBOOT": tftp_dir,
+        },
+        provisioning: {
+            "SIP_CONF": sip_conf,
+            "EXTENSIONS_CONF": ext_conf,
+            "VOICEMAIL_CONF": vm_conf,
+            "TFTPBOOT": tftp_dir,
+            "XML_TEMPLATE": xml_template,
+        },
+        voicemail: {"VOICEMAIL_CONF": vm_conf},
+        caller_id: {"SIP_CONF": sip_conf},
+        edit_files: {
+            "SIP_CONF": sip_conf,
+            "EXTENSIONS_CONF": ext_conf,
+            "VOICEMAIL_CONF": vm_conf,
+        },
+        helpers: {"TFTPBOOT": tftp_dir},
+    }
+    for module, attrs in patches.items():
+        for name, value in attrs.items():
+            monkeypatch.setattr(module, name, value)
 
     yield {
         "etc_dir": etc_dir,

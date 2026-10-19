@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
+from asterisk_phone_management import main as main_module
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.main import (
     _parse_args,
@@ -36,10 +37,7 @@ def test_ensure_required_paths_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     missing_file = tmp_path / "nonexistent.conf"
-    monkeypatch.setattr(
-        "asterisk_phone_management.main.REQUIRED_FILES",
-        (missing_file,),
-    )
+    monkeypatch.setattr(main_module, "REQUIRED_FILES", (missing_file,))
 
     with pytest.raises(FileNotFoundError, match="Missing 1 required file"):
         ensure_required_paths()
@@ -49,9 +47,7 @@ def test_main_missing_files_exits(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
 ) -> None:
     missing_file = tmp_path / "nonexistent.conf"
-    monkeypatch.setattr(
-        "asterisk_phone_management.main.REQUIRED_FILES", (missing_file,)
-    )
+    monkeypatch.setattr(main_module, "REQUIRED_FILES", (missing_file,))
     mocker.patch("asterisk_phone_management.main._parse_args")
 
     with pytest.raises(SystemExit) as exc_info:
