@@ -126,5 +126,5 @@ filterwarnings = ["error", "ignore::DeprecationWarning"]
 branch = true
 source = ["asterisk_phone_management"]
 
-[tool.converage.report]
+[tool.coverage.report]
 exclude_also = ["if TYPE_CHECKING:", "@overload"]
