@@ -1,5 +1,6 @@
 """Unit tests for configuration file search services."""
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -109,6 +110,19 @@ def test_search_for_extension_read_error(
     finally:
         # Restore permissions so pytest cleanup doesn't fail
         sip_conf.chmod(0o644)
+
+
+@pytest.mark.usefixtures("mock_asterisk_env")
+def test_search_for_extension_masks_voicemail_pin_in_logs(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Voicemail PINs are masked in log output but kept in the results."""
+    with caplog.at_level(logging.INFO):
+        results = search_for_extension("1001")
+    assert "1001 = ****, John Doe" in caplog.text
+    assert "1001 = 1234" not in caplog.text
+    vm_matches = [m for m in results if m.file_path.name == "voicemail.conf"]
+    assert vm_matches[0].matched_text.startswith("1001 = 1234")
 
 
 @pytest.mark.usefixtures("mock_asterisk_env")

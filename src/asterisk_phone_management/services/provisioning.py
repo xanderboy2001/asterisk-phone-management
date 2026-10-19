@@ -342,7 +342,9 @@ def _patch_file(file_path: Path, content: str) -> None:
     """
     with file_path.open(mode="a", encoding="utf-8") as file:
         file.write(content)
-    log.debug("Appended '%s' to '%s'", content, file_path)
+    # Content is deliberately not logged: it can contain SIP secrets and
+    # voicemail details.
+    log.debug("Appended %d characters to '%s'", len(content), file_path)
 
 
 def register_phone(phone: Phone, voicemail: Voicemail | None = None) -> None:
