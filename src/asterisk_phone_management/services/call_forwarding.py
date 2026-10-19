@@ -2,8 +2,6 @@
 
 from typing import Literal
 
-import questionary
-
 from asterisk_phone_management.core.constants import (
     CallForwardingDefinition,
     log,
@@ -30,23 +28,6 @@ def forwarding_enabled(user: CallForwardingDefinition) -> bool:
     forwarding_string: str = f"&SIP/{user.forwarding_number}@cisco_vg"
 
     return not matched_text.endswith(f";{forwarding_string}")
-
-
-def _should_continue(message: str) -> bool:
-    """Prompt the operator to confirm before applying a change.
-
-    Args:
-        message: The confirmation prompt to display.
-
-    Returns:
-        True if the operator confirms, False if they decline or cancel.
-    """
-    answer: bool | None = questionary.confirm(message).ask()
-
-    if answer is None:
-        return False
-
-    return answer
 
 
 def _build_forwarding_string(user: CallForwardingDefinition) -> str:

@@ -6,6 +6,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from asterisk_phone_management.cli.prompts import (
+    ask,
     prompt_search_method,
     prompt_select_caller_id,
     prompt_use_voicemail,
@@ -151,15 +152,16 @@ def test_prompt_use_voicemail_bool(mocker: MockerFixture) -> None:
 def test_prompt_use_voicemail_cancelled(mocker: MockerFixture) -> None:
     mock_confirm = mocker.patch("questionary.confirm")
     mock_confirm.return_value.ask.side_effect = KeyboardInterrupt
-    with pytest.raises((AsteriskCliError, KeyboardInterrupt)):
+    with pytest.raises(KeyboardInterrupt):
         prompt_use_voicemail()
 
 
 def test_prompt_use_voicemail_cancelled_none(mocker: MockerFixture) -> None:
+    """Ctrl+C (None) at the voicemail prompt cancels the operation."""
     mock_confirm = mocker.patch("questionary.confirm")
     mock_confirm.return_value.ask.return_value = None
-    result = prompt_use_voicemail()
-    assert result is None
+    with pytest.raises(KeyboardInterrupt, match="Prompt cancelled by user"):
+        prompt_use_voicemail()
 
 
 def test_prompt_select_caller_id_all(mocker: MockerFixture) -> None:
@@ -198,7 +200,7 @@ def test_prompt_select_caller_id_cancel(mocker: MockerFixture) -> None:
         )
     ]
 
-    with pytest.raises(KeyboardInterrupt, match="Cancelled by user"):
+    with pytest.raises(KeyboardInterrupt, match="Prompt cancelled by user"):
         prompt_select_caller_id(matches)
 
 
@@ -215,7 +217,7 @@ def test_prompt_select_caller_id_cancel_none(mocker: MockerFixture) -> None:
         )
     ]
 
-    with pytest.raises(KeyboardInterrupt, match="Cancelled by user"):
+    with pytest.raises(KeyboardInterrupt, match="Prompt cancelled by user"):
         prompt_select_caller_id(matches)
 
 
@@ -263,5 +265,28 @@ def test_prompt_select_caller_id_specific_cancelled(
         )
     ]
 
-    with pytest.raises(KeyboardInterrupt, match="Cancelled by user"):
+    with pytest.raises(KeyboardInterrupt, match="Prompt cancelled by user"):
         prompt_select_caller_id(matches)
+
+
+def test_ask_returns_typed_answer(mocker: MockerFixture) -> None:
+    """An answer of the expected type is returned unchanged."""
+    question = mocker.MagicMock()
+    question.ask.return_value = "1234"
+    assert ask(question, str) == "1234"
+
+
+def test_ask_cancel_raises_keyboard_interrupt(mocker: MockerFixture) -> None:
+    """A cancelled prompt (None) raises KeyboardInterrupt."""
+    question = mocker.MagicMock()
+    question.ask.return_value = None
+    with pytest.raises(KeyboardInterrupt, match="Prompt cancelled by user"):
+        ask(question, str)
+
+
+def test_ask_wrong_type_raises(mocker: MockerFixture) -> None:
+    """An answer of the wrong type raises AsteriskCliError."""
+    question = mocker.MagicMock()
+    question.ask.return_value = 42
+    with pytest.raises(AsteriskCliError, match="Unexpected answer type: int"):
+        ask(question, str)

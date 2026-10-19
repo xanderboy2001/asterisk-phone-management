@@ -108,7 +108,7 @@ def handle_remove_phone() -> None:
     """Prompt for search method and key, then remove a phone."""
     search_method = prompt_search_method()
     search_key = _resolve_search_key(search_method)
-    if not search_key:
+    if search_key is None:
         return
     remove_phone(search_method, search_key)
 
@@ -117,7 +117,7 @@ def handle_replace_phone() -> None:
     """Prompt for search method and key, then replace phone."""
     search_method = prompt_search_method()
     search_key = _resolve_search_key(search_method)
-    if not search_key:
+    if search_key is None:
         return
     replace_phone(search_method, search_key)
 

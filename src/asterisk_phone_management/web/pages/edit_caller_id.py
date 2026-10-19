@@ -40,6 +40,8 @@ async def on_submit(
         new_caller_id: The new caller ID value.
         selected_matches: The ConfigMatch entries selected for update.
     """
+    extension = (extension or "").strip()
+    new_caller_id = (new_caller_id or "").strip()
     if not extension:
         ui.notify("No extension!", type="negative", textColor="dark")
         return
@@ -117,9 +119,7 @@ def register_page() -> None:
             ):
                 ui.checkbox(
                     value=True,
-                    on_change=lambda e, i=idx: _toggle(
-                        e.value if e.value else True, i
-                    ),
+                    on_change=lambda e, i=idx: _toggle(bool(e.value), i),
                 )
                 with ui.column().classes("flex-grow"):
                     ui.label(
@@ -172,6 +172,7 @@ def register_page() -> None:
         def _search(ext: str | None) -> None:
             nonlocal current_matches, selected_flags
 
+            ext = (ext or "").strip()
             if not ext:
                 ui.notify(
                     "Please enter an extension.",

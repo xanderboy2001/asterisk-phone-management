@@ -105,18 +105,21 @@ def get_mac_from_ext(matches: list[ConfigMatch]) -> str:
                 pattern=r"SIP/SEP([A-Fa-f0-9]{12})", string=match.matched_text
             )
             if mac_match:
-                return mac_match.group(1).upper()
+                return str(mac_match.group(1).upper())
         elif match.file_path.name == SIP_CONF_NAME:
             mac_match = re.search(
                 pattern=r"SEP([A-Fa-f0-9]{12})", string=match.matched_text
             )
             if mac_match:
-                return mac_match.group(1).upper()
+                return str(mac_match.group(1).upper())
         elif match.file_path.suffixes == [".cnf", ".xml"]:
             xml_root = ET.parse(match.file_path).getroot()
             name_element = xml_root.find(".//name")
-            if name_element is not None and name_element.text:
-                return name_element.text.upper().removeprefix(SEP_PREFIX)
+            name_text = (
+                (name_element.text or "") if name_element is not None else ""
+            )
+            if name_text:
+                return name_text.upper().removeprefix(SEP_PREFIX)
 
     msg = "Could not determine MAC address from extension number!"
     log.error(msg)
@@ -141,14 +144,19 @@ def get_ext_from_mac(matches: list[ConfigMatch]) -> str:
             extension_element: ET.Element | None = xml_root.find(
                 path=".//featureLabel"
             )
-            if extension_element is not None and extension_element.text:
-                return extension_element.text
+            extension_text = (
+                (extension_element.text or "")
+                if extension_element is not None
+                else ""
+            )
+            if extension_text:
+                return extension_text
         elif match.file_path.name == EXTENSIONS_CONF_NAME:
             ext_match = re.search(
                 pattern=r"exten\s*=>\s*(\d{4})", string=match.matched_text
             )
             if ext_match:
-                return ext_match.group(1)
+                return str(ext_match.group(1))
 
     msg = "Could not determine extension from MAC address!"
     log.error(msg)

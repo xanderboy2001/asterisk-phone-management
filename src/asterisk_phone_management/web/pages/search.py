@@ -39,9 +39,6 @@ _SEARCH_METHODS: dict[str, str] = {
     SEARCH_BY_CALLER_ID: "Search by Caller ID",
 }
 
-"""Union type for search results returned by the search functions."""
-_SearchResult = ConfigMatch | list[ConfigMatch]
-
 
 def register_page() -> None:
     """Register the search page route with NiceGUI."""
@@ -69,6 +66,7 @@ def register_page() -> None:
                 """
                 results_container.clear()
 
+                search_val = (search_val or "").strip()
                 if not search_val:
                     ui.notify(
                         message="Please enter a search value.",
@@ -77,7 +75,7 @@ def register_page() -> None:
                     )
                     return
 
-                response_data: _SearchResult | None = None
+                response_data: list[ConfigMatch] = []
                 if _method == SEARCH_BY_EXTENSION:
                     response_data = search_for_extension(extension=search_val)
                 elif _method == SEARCH_BY_MAC:

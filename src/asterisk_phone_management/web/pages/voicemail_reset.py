@@ -24,6 +24,7 @@ async def on_submit(extension: str | None) -> None:
     Args:
         extension: Target extension for resetting the voicemail password.
     """
+    extension = (extension or "").strip()
     if not extension:
         ui.notify("No data!", type="negative")
         return

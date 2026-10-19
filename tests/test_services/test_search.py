@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from asterisk_phone_management.services import search as search_module
 from asterisk_phone_management.services.search import (
     _is_caller_id_match,
     _is_extensions_ext_match,
@@ -87,9 +88,7 @@ def test_search_for_extension_missing_file_skipped(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     missing_file = tmp_path / "nonexistent.conf"
-    monkeypatch.setattr(
-        "asterisk_phone_management.services.search.SIP_CONF", missing_file
-    )
+    monkeypatch.setattr(search_module, "SIP_CONF", missing_file)
     results = search_for_extension("1001")
     file_names = {match.file_path.name for match in results}
     assert "sip.conf" not in file_names
@@ -148,9 +147,7 @@ def test_search_for_mac_address_missing_file_skipped(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     missing_file = tmp_path / "nonexistent.conf"
-    monkeypatch.setattr(
-        "asterisk_phone_management.services.search.SIP_CONF", missing_file
-    )
+    monkeypatch.setattr(search_module, "SIP_CONF", missing_file)
     results = search_for_mac_address("112233445566")
     file_names = {match.file_path.name for match in results}
     assert "sip.conf" not in file_names

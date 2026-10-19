@@ -6,7 +6,7 @@ from pathlib import Path
 
 import questionary
 
-from asterisk_phone_management.cli.prompts import read_mac_addr
+from asterisk_phone_management.cli.prompts import ask, read_mac_addr
 from asterisk_phone_management.cli.views import print_phone_table
 from asterisk_phone_management.core.constants import (
     EXTENSIONS_CONF,
@@ -362,12 +362,13 @@ def register_phone(phone: Phone, voicemail: Voicemail | None = None) -> None:
 
     print_phone_table(phone, voicemail)
 
-    should_continue: bool | None = None
-    while should_continue is None:
-        should_continue = questionary.confirm(
+    should_continue: bool = ask(
+        questionary.confirm(
             message="Are you sure you wish to register this phone?",
             default=True,
-        ).ask()
+        ),
+        bool,
+    )
 
     if not should_continue:
         log.error("User cancelled interaction.")
@@ -419,10 +420,13 @@ def remove_phone(search_method: str, search_key: str) -> None:
     )
     print_phone_table(phone_model)
 
-    should_continue: bool = questionary.confirm(
-        message="Are you sure you wish to delete/deregister this phone?",
-        default=False,
-    ).ask()
+    should_continue: bool = ask(
+        questionary.confirm(
+            message="Are you sure you wish to delete/deregister this phone?",
+            default=False,
+        ),
+        bool,
+    )
 
     if not should_continue:
         log.error("User cancelled interaction.")

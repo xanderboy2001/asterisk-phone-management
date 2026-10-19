@@ -5,6 +5,8 @@ assignments across Asterisk configuration files and IP phone
 provisioning XML configurations.
 """
 
+from typing import Annotated
+
 from fastapi import APIRouter, HTTPException, Path
 
 from asterisk_phone_management.api.responses import ConfigMatchResponse
@@ -24,14 +26,14 @@ router = APIRouter()
 
 @router.get(
     "/extension/{extension}",
-    response_model=list[ConfigMatchResponse],
     summary="Search for an extension",
     description="Search Asterisk config & XML files for a 4-digit extension",
 )
 def search_extension(
-    extension: str = Path(
-        ..., description="The 4-digit extension to search for (e.g., 1234)."
-    ),
+    extension: Annotated[
+        str,
+        Path(description="The 4-digit extension to search for (e.g., 1234)."),
+    ],
 ) -> list[ConfigMatchResponse]:
     """Search for a given extension within the Asterisk configuration files.
 
@@ -72,14 +74,16 @@ def search_extension(
 
 @router.get(
     "/mac_address/{mac_address}",
-    response_model=list[ConfigMatchResponse],
     summary="Search for a MAC address",
     description="Search Asterisk config & XML files for a MAC address",
 )
 def search_mac_address(
-    mac_address: str = Path(
-        ..., description="The MAC address to search for (e.g., AABBCCDDEEFF)."
-    ),
+    mac_address: Annotated[
+        str,
+        Path(
+            description="The MAC address to search for (e.g., AABBCCDDEEFF)."
+        ),
+    ],
 ) -> list[ConfigMatchResponse]:
     """Search for a given MAC address within the Asterisk configuration files.
 
@@ -121,14 +125,14 @@ def search_mac_address(
 
 @router.get(
     "/caller_id/{caller_id}",
-    response_model=list[ConfigMatchResponse],
     summary="Search for a caller ID",
     description="Search sip.conf for a given caller ID.",
 )
 def search_caller_id(
-    caller_id: str = Path(
-        ..., description="The caller ID to search for (e.g., John)."
-    ),
+    caller_id: Annotated[
+        str,
+        Path(description="The caller ID to search for (e.g., John)."),
+    ],
 ) -> list[ConfigMatchResponse]:
     """Search for a given caller ID within sip.conf.
 

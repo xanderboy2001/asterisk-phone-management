@@ -158,7 +158,7 @@ def main() -> None:
         SystemExit: If any of the required files are not found.
     """
     parsed_args = _parse_args()
-    verbose: bool = parsed_args.verbose
+    verbose: bool = bool(parsed_args.verbose)
 
     if verbose:
         log.setLevel(logging.DEBUG)

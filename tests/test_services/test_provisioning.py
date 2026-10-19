@@ -200,14 +200,30 @@ def test_register_phone_existing_mac(mocker: MockerFixture) -> None:
 
 
 @pytest.mark.usefixtures("mock_asterisk_env")
-def test_register_phone_prompt_retry_then_cancel(
-    mocker: MockerFixture,
-) -> None:
+def test_register_phone_ctrl_c_cancels(mocker: MockerFixture) -> None:
+    """Ctrl+C at the confirmation cancels instead of re-prompting (F-14)."""
     new_phone = Phone(
         extension="9999", mac_address="999999999999", caller_id=""
     )
     mock_confirm = mocker.patch("questionary.confirm")
-    mock_confirm.return_value.ask.side_effect = [None, False]
+    mock_confirm.return_value.ask.return_value = None
+    mock_provision = mocker.patch(
+        "asterisk_phone_management.services.provisioning._provision_phone"
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        register_phone(new_phone)
+    mock_provision.assert_not_called()
+    mock_confirm.assert_called_once()
+
+
+@pytest.mark.usefixtures("mock_asterisk_env")
+def test_register_phone_user_declines(mocker: MockerFixture) -> None:
+    """Answering No at the confirmation does not provision."""
+    new_phone = Phone(
+        extension="9999", mac_address="999999999999", caller_id=""
+    )
+    mocker.patch("questionary.confirm").return_value.ask.return_value = False
     mock_provision = mocker.patch(
         "asterisk_phone_management.services.provisioning._provision_phone"
     )

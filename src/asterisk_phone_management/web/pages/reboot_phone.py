@@ -24,6 +24,7 @@ async def on_submit(extension: str | None) -> None:
     Args:
         extension: The target phone extension to reboot.
     """
+    extension = (extension or "").strip()
     if not extension:
         ui.notify("No data!", type="negative", textColor="dark")
         return

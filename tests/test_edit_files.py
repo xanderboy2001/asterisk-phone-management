@@ -41,7 +41,8 @@ def test_get_editor_not_found(mocker: MockerFixture) -> None:
 
 def test_edit_files_no_selection(mocker: MockerFixture) -> None:
     mocker.patch("questionary.select").return_value.ask.return_value = None
-    edit_files()
+    with pytest.raises(KeyboardInterrupt):
+        edit_files()
 
 
 def test_edit_files_success(
