@@ -27,6 +27,14 @@ from asterisk_phone_management.core.exceptions import (
     FileTransactionError,
 )
 from asterisk_phone_management.core.transactions import ConfigTransaction
+from asterisk_phone_management.core.validators import (
+    ensure_valid,
+    validate_caller_id,
+    validate_email,
+    validate_extension,
+    validate_mac_addr,
+    validate_vm_field,
+)
 from asterisk_phone_management.helpers import (
     copy_file_safe,
     get_caller_id_from_ext,
@@ -347,13 +355,40 @@ def _patch_file(file_path: Path, content: str) -> None:
     log.debug("Appended %d characters to '%s'", len(content), file_path)
 
 
+def _validate_registration(phone: Phone, voicemail: Voicemail | None) -> None:
+    """Validate every field that will be written to the config files.
+
+    Args:
+        phone: The phone being registered.
+        voicemail: Optional voicemail configuration for the phone.
+
+    Raises:
+        AsteriskCliError: If any field is invalid.
+    """
+    ensure_valid(validate_extension(phone.extension))
+    ensure_valid(validate_mac_addr(phone.mac_address))
+    # An empty caller ID is allowed: the phone is registered without one
+
+    if phone.caller_id:
+        ensure_valid(validate_caller_id(phone.caller_id))
+    if voicemail is not None:
+        ensure_valid(validate_vm_field(voicemail.name))
+        ensure_valid(validate_vm_field(voicemail.email))
+        ensure_valid(validate_email(voicemail.email))
+
+
 def register_phone(phone: Phone, voicemail: Voicemail | None = None) -> None:
     """Orchestrate interactive phone registration workflow.
 
     Args:
         phone: The extension, MAC address, and caller ID to register.
         voicemail: Optional voicemail configuration for the phone.
+
+    Raises:
+        AsteriskCliError: If any phone or voicemail field is invalid.
+        KeyboardInterrupt: If the user cancels the confirmation prompt.
     """
+    _validate_registration(phone, voicemail)
     if search_for_extension(phone.extension):
         log.error("Extension '%s' is already in use!", phone.extension)
         return
@@ -389,6 +424,7 @@ def remove_phone(search_method: str, search_key: str) -> None:
     Raises:
         AsteriskCliError: If search_method is neither 'ext' nor 'mac',
             or if a MAC/extension cannot be resolved from the search.
+        KeyboardInterrupt: If the user cancels the confirmation prompt.
     """
     extension: str = ""
     mac_address: str = ""

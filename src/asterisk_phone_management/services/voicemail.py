@@ -12,6 +12,11 @@ from asterisk_phone_management.core.exceptions import (
     FileTransactionError,
 )
 from asterisk_phone_management.core.transactions import ConfigTransaction
+from asterisk_phone_management.core.validators import (
+    ensure_valid,
+    validate_extension,
+    validate_vm_password,
+)
 from asterisk_phone_management.services.search import search_for_extension
 
 
@@ -23,10 +28,13 @@ def reset_vm_password(extension: str, new_pin: str) -> None:
         new_pin: The new voicemail PIN to write.
 
     Raises:
-        AsteriskCliError: If no voicemail box is found for the extension.
+        AsteriskCliError: If the extension or PIN is invalid, or no
+            voicemail box is found for the extension.
         FileTransactionError: If voicemail.conf could not be updated. The
             file is rolled back to its prior state before this is raised.
     """
+    ensure_valid(validate_extension(extension))
+    ensure_valid(validate_vm_password(new_pin))
     extension_matches = search_for_extension(extension)
 
     voicemail_match = [
@@ -51,7 +59,9 @@ def reset_vm_password(extension: str, new_pin: str) -> None:
             pattern = rf"^({re.escape(extension)}\s*=>?\s*)[^,]*"
             updated_content = re.sub(
                 pattern=pattern,
-                repl=rf"\g<1>{new_pin}",
+                # A function replacement stops the PIN being parsed as a
+                # regex template (e.g. backslashes or group references).
+                repl=lambda m: m.group(1) + new_pin,
                 string=content,
                 flags=re.MULTILINE,
             )

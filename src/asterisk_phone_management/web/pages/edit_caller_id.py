@@ -8,6 +8,10 @@ from asterisk_phone_management.core.exceptions import (
     FileTransactionError,
 )
 from asterisk_phone_management.core.theme import DRACULA
+from asterisk_phone_management.core.validators import (
+    validate_caller_id,
+    validate_extension,
+)
 from asterisk_phone_management.schemas.models import ConfigMatch
 from asterisk_phone_management.services.caller_id import edit_caller_id
 from asterisk_phone_management.services.search import search_for_extension
@@ -49,6 +53,16 @@ async def on_submit(
     if not new_caller_id:
         ui.notify("No caller ID!", type="negative", textColor="dark")
         return
+
+    for validation_result in (
+        validate_extension(extension),
+        validate_caller_id(new_caller_id),
+    ):
+        if validation_result is not True:
+            ui.notify(
+                str(validation_result), type="negative", textColor="dark"
+            )
+            return
 
     if not selected_matches:
         ui.notify("No entries selected!", type="warning", textColor="dark")

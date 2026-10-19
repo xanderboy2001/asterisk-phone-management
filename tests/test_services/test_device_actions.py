@@ -283,3 +283,13 @@ def test_reboot_phone_failure(mocker: MockerFixture) -> None:
         DeviceCommunicationError, match="Failed to deliver reboot command"
     ):
         reboot_phone("1001")
+
+
+def test_reboot_phone_rejects_invalid_extension(mocker: MockerFixture) -> None:
+    """A partial extension is rejected before any phone is looked up."""
+    mock_search = mocker.patch(
+        "asterisk_phone_management.services.device_actions.search_for_extension"
+    )
+    with pytest.raises(AsteriskCliError, match="4 digits"):
+        reboot_phone("1")
+    mock_search.assert_not_called()

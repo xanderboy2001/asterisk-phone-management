@@ -94,3 +94,17 @@ async def test_reboot_generic_cli_error(
     with user.scope(ui.dialog):
         user.find(marker="confirm-yes").click()
     await user.should_see("An unexpected error occurred: boom")
+
+
+async def test_reboot_phone_invalid_extension_is_rejected(
+    user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A partial extension is rejected before the confirm dialog opens."""
+    mock_service = MagicMock()
+    monkeypatch.setattr(reboot_page, "reboot_phone", mock_service)
+    await user.open("/reboot-phone")
+    user.find("Enter an Extension").type("1")
+    user.find("Submit").click()
+    await user.should_see("Extension must be 4 digits.")
+    await user.should_not_see(marker="confirm-yes")
+    mock_service.assert_not_called()

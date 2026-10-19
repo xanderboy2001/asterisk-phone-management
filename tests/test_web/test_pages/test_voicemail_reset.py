@@ -83,3 +83,17 @@ async def test_voicemail_reset_failure(
     await user.should_see(
         "Failed to reset voicemail password for 1234: disk full"
     )
+
+
+async def test_voicemail_reset_invalid_extension_is_rejected(
+    user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A partial extension is rejected before the confirm dialog opens."""
+    mock_service = MagicMock()
+    monkeypatch.setattr(voicemail_page, "reset_vm_password", mock_service)
+    await user.open("/voicemail-reset")
+    user.find("Enter an Extension").type("1")
+    user.find("Submit").click()
+    await user.should_see("Extension must be 4 digits.")
+    await user.should_not_see(marker="confirm-yes")
+    mock_service.assert_not_called()

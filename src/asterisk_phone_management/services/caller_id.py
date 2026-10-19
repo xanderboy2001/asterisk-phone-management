@@ -9,6 +9,10 @@ from asterisk_phone_management.core.exceptions import (
     FileTransactionError,
 )
 from asterisk_phone_management.core.transactions import ConfigTransaction
+from asterisk_phone_management.core.validators import (
+    ensure_valid,
+    validate_caller_id,
+)
 from asterisk_phone_management.schemas.models import ConfigMatch
 
 
@@ -55,8 +59,10 @@ def edit_caller_id(
         new_caller_id: The new caller ID string.
 
     Raises:
+        AsteriskCliError: if the new caller ID is invalid.
         FileTransactionError: If file modification or index validation fails.
     """
+    ensure_valid(validate_caller_id(new_caller_id))
     target_indices = [match.line_number - 1 for match in target_matches]
     if not target_indices:
         return

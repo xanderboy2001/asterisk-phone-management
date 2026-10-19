@@ -5,7 +5,10 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
-from asterisk_phone_management.core.exceptions import FileTransactionError
+from asterisk_phone_management.core.exceptions import (
+    AsteriskCliError,
+    FileTransactionError,
+)
 from asterisk_phone_management.schemas.models import ConfigMatch
 from asterisk_phone_management.services.caller_id import (
     _apply_caller_id_updates,
@@ -103,3 +106,23 @@ def test_edit_caller_id_file_error(
             ],
             '"New" <1001>',
         )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    ['"x"\n[evil](phone)\nsecret=1', '"x" <1001>;note', ""],
+)
+def test_edit_caller_id_rejects_injection(
+    mock_asterisk_env: dict[str, Path], payload: str
+) -> None:
+    """Line-breaking caller IDs never reach sip.conf."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    before = sip_conf.read_text(encoding="utf-8")
+    match = ConfigMatch(
+        file_path=sip_conf,
+        line_number=6,
+        matched_text='callerid="John Doe" <1001>',
+    )
+    with pytest.raises(AsteriskCliError):
+        edit_caller_id([match], payload)
+    assert sip_conf.read_text(encoding="utf-8") == before

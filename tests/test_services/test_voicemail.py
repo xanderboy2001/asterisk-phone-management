@@ -50,3 +50,28 @@ def test_reset_vm_password_file_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(FileTransactionError, match="Failed to modify"):
         reset_vm_password("1001", "5678")
+
+
+@pytest.mark.usefixtures("mock_asterisk_env")
+@pytest.mark.parametrize(
+    ("extension", "new_pin"),
+    [("1", "5678"), ("1001", "12\\"), ("1001", "\\g<0>"), ("1001", "12a4")],
+)
+def test_reset_vm_password_rejects_invalid_input(
+    extension: str, new_pin: str
+) -> None:
+    """Invalid extensions and PINs are rejected before any file is read."""
+    with pytest.raises(AsteriskCliError):
+        reset_vm_password(extension, new_pin)
+
+
+def test_reset_vm_password_only_changes_pin(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """The rest of the mailbox line is left exactly as it was."""
+    vm_conf = mock_asterisk_env["vm_conf"]
+    reset_vm_password("1001", "9876")
+    assert (
+        "1001 = 9876, John Doe, john@example.com,,attach=yes|delete=1"
+        in vm_conf.read_text(encoding="utf-8")
+    )

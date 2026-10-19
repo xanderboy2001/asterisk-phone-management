@@ -17,6 +17,10 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskServiceError,
     DeviceCommunicationError,
 )
+from asterisk_phone_management.core.validators import (
+    ensure_valid,
+    validate_extension,
+)
 from asterisk_phone_management.helpers import get_mac_from_ext
 from asterisk_phone_management.schemas.models import ActiveCall
 from asterisk_phone_management.services.search import (
@@ -279,9 +283,12 @@ def reboot_phone(extension: str) -> None:
         extension: The target phone extension.
 
     Raises:
+        AsteriskCliError: If the extension is invalid or no MAC address
+            can be found for it.
         DeviceCommunicationError: If the phone's IP address cannot be
             resolved, or the reboot command could not be delivered.
     """
+    ensure_valid(validate_extension(extension))
     extension_matches: list[ConfigMatch] = search_for_extension(extension)
     mac_address: str = get_mac_from_ext(extension_matches)
     ip_address: str = _get_ip_address(mac_address)
