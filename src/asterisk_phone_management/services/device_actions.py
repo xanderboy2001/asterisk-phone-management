@@ -145,7 +145,7 @@ def _is_asterisk_running() -> bool:
             not be executed.
     """
     pgrep_path: str | None = shutil.which("pgrep")
-    if not pgrep_path:
+    if pgrep_path is None:
         msg = "The 'pgrep' command was not found on the system."
         log.error(msg)
         raise AsteriskCliError(msg)
@@ -177,7 +177,7 @@ def reload_asterisk_module(command: str, friendly_name: str) -> None:
         AsteriskServiceError: If the reload command fails.
     """
     asterisk_path: str | None = shutil.which("asterisk")
-    if not asterisk_path:
+    if asterisk_path is None:
         msg = "The 'asterisk' command was not found on the system."
         log.error(msg)
         raise AsteriskCliError(msg)

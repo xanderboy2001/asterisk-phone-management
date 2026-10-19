@@ -192,6 +192,7 @@ pygments==2.21.0
     #   rich
 python-dotenv==1.2.4
     # via
+    #   asterisk-phone-management
     #   dotenv
     #   nicegui
     #   pydantic-settings
@@ -204,7 +205,7 @@ python-multipart==0.0.32
     #   nicegui
 python-socketio==5.17.0
     # via nicegui
-pyyaml==6.0.3
+pyyaml==6.0.2
     # via uvicorn
 questionary==2.1.1
     # via asterisk-phone-management

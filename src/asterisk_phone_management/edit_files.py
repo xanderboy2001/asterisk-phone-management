@@ -31,7 +31,14 @@ def get_editor() -> str | None:
         The name of the selected editor or None if no valid editor is found.
     """
     candidates = [os.getenv("EDITOR"), "nvim", "vim", "nano"]
-    return next((cmd for cmd in candidates if cmd and shutil.which(cmd)), None)
+    return next(
+        (
+            cmd
+            for cmd in candidates
+            if cmd is not None and shutil.which(cmd) is not None
+        ),
+        None,
+    )
 
 
 def edit_files() -> None:
@@ -69,7 +76,7 @@ def edit_files() -> None:
         Path,
     )
     editor = get_editor()
-    if not editor:
+    if editor is None:
         msg = "No valid editor found!"
         log.error("No valid editor found!")
         raise AsteriskCliError(msg)
