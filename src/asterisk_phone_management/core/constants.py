@@ -6,6 +6,7 @@ configuration used across the Asterisk phone management tool.
 
 import logging
 import os
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal
@@ -100,13 +101,41 @@ class CallForwardingDefinition:
     forwarding_number: str
 
 
-CALL_FORWARDING_USERS: list[CallForwardingDefinition] = [
-    CallForwardingDefinition(
-        name="Buzz Lightyear",
-        extension="1001",
-        forwarding_number="15555550100",
+CALL_FORWARDING_FILE: Path = Path(
+    os.environ.get(
+        "ASTERISK_CLI_CALL_FORWARDING_FILE",
+        "/etc/asterisk-phone-management/call_forwarding.toml",
     )
-]
+)
+
+
+def load_call_forwarding_users(
+    path: Path = CALL_FORWARDING_FILE,
+) -> list[CallForwardingDefinition]:
+    """Load the call forwarding roster from a TOML file.
+
+    Args:
+        path: Path to the roster file.
+
+    Returns:
+        The configured users, or an empty list if the file does not exist.
+    """
+    if not path.exists():
+        return []
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    return [
+        CallForwardingDefinition(
+            name=user["name"],
+            extension=user["extension"],
+            forwarding_number=user["forwarding_number"],
+        )
+        for user in data.get("users", [])
+    ]
+
+
+CALL_FORWARDING_USERS: list[CallForwardingDefinition] = (
+    load_call_forwarding_users()
+)
 
 
 _LOG_FORMAT: str = "%(message)s"

@@ -1,0 +1,5 @@
+# Copy to /etc/asterisk-phone-management/call_forwarding.toml
+[[Users]]
+name = "Buzz Lightyear"
+extension = "1001"
+forwarding_number = "15555550100"

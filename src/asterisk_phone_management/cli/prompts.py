@@ -296,6 +296,10 @@ def prompt_select_call_forwarding_definition() -> CallForwardingDefinition:
     Raises:
         AsteriskCliError: If the user cancels the prompt.
     """
+    if not CALL_FORWARDING_USERS:
+        msg = "No call forwarding users configured."
+        log.error(msg)
+        raise AsteriskCliError(msg)
     choices: list[Choice] = [
         Choice(
             title=f"{user.name} ({user.extension})",
