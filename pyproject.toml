@@ -13,6 +13,8 @@ dependencies = [
   "questionary>=2.1.1",
   "rich>=15.0.0",
 ]
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE.md"]
 
 [project.scripts]
 menu = "asterisk_phone_management.main:main"
