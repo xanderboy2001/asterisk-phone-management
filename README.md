@@ -9,19 +9,19 @@ It edits the standard Asterisk configuration files (`sip.conf`, `extensions.conf
 
 ## Features
 
-| Feature | CLI | Web UI | API |
-|---|:-:|:-:|:-:|
-| Search by extension, MAC address, or caller ID | ✅ | ✅ | ✅ |
-| Register a new phone (with optional voicemail) | ✅ | | |
-| Replace a phone (swap MAC address) | ✅ | | |
-| Remove a phone | ✅ | | |
-| Reset a voicemail PIN | ✅ | ✅ | |
-| Edit a caller ID | ✅ | ✅ | |
-| Toggle call forwarding | ✅ | ✅ | |
-| Reboot a phone over SSH | ✅ | ✅ | |
-| View active calls | ✅ | | |
-| Edit config files in `$EDITOR` | ✅ | | |
-| Reload Asterisk modules | ✅ | | |
+| Feature                                        | CLI | Web UI | API |
+| ---------------------------------------------- | :-: | :----: | :-: |
+| Search by extension, MAC address, or caller ID | ✅  |   ✅   | ✅  |
+| Register a new phone (with optional voicemail) | ✅  |        |     |
+| Replace a phone (swap MAC address)             | ✅  |        |     |
+| Remove a phone                                 | ✅  |        |     |
+| Reset a voicemail PIN                          | ✅  |   ✅   |     |
+| Edit a caller ID                               | ✅  |   ✅   |     |
+| Toggle call forwarding                         | ✅  |   ✅   |     |
+| Reboot a phone over SSH                        | ✅  |   ✅   |     |
+| View active calls                              | ✅  |        |     |
+| Edit config files in `$EDITOR`                 | ✅  |        |     |
+| Reload Asterisk modules                        | ✅  |        |     |
 
 ## Requirements
 
@@ -45,13 +45,13 @@ uv sync --no-dev
 
 Settings are read from environment variables. A `.env` file in the working directory is also loaded.
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `ASTERISK_CLI_ETC` | `/etc/asterisk` | Asterisk configuration directory |
-| `ASTERISK_CLI_TFTPBOOT` | `/var/lib/tftpboot` | TFTP directory with `.cnf.xml` files |
-| `ASTERISK_CLI_PHONE_SSH_USER` | `admin` | SSH username for rebooting phones |
-| `ASTERISK_CLI_PHONE_SSH_PASS` | `cisco` | SSH password for rebooting phones |
-| `ASTERISK_CLI_CALL_FORWARDING_FILE` | `/etc/asterisk-phone-management/call_forwarding.toml` | Call forwarding roster |
+| Variable                            | Default                                               | Purpose                              |
+| ----------------------------------- | ----------------------------------------------------- | ------------------------------------ |
+| `ASTERISK_CLI_ETC`                  | `/etc/asterisk`                                       | Asterisk configuration directory     |
+| `ASTERISK_CLI_TFTPBOOT`             | `/var/lib/tftpboot`                                   | TFTP directory with `.cnf.xml` files |
+| `ASTERISK_CLI_PHONE_SSH_USER`       | `admin`                                               | SSH username for rebooting phones    |
+| `ASTERISK_CLI_PHONE_SSH_PASS`       | `cisco`                                               | SSH password for rebooting phones    |
+| `ASTERISK_CLI_CALL_FORWARDING_FILE` | `/etc/asterisk-phone-management/call_forwarding.toml` | Call forwarding roster               |
 
 > [!IMPORTANT]
 > The SSH defaults are Cisco's factory credentials. Change them on your phones and set these variables.
@@ -94,11 +94,11 @@ uv run fastapi run --host 127.0.0.1 --port 8000
 
 API endpoints:
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/v1/search/extension/{extension}` | Find a 4-digit extension |
-| `GET` | `/api/v1/search/mac_address/{mac_address}` | Find a MAC address |
-| `GET` | `/api/v1/search/caller_id/{caller_id}` | Find a caller ID in `sip.conf` |
+| Method | Path                                       | Description                    |
+| ------ | ------------------------------------------ | ------------------------------ |
+| `GET`  | `/api/v1/search/extension/{extension}`     | Find a 4-digit extension       |
+| `GET`  | `/api/v1/search/mac_address/{mac_address}` | Find a MAC address             |
+| `GET`  | `/api/v1/search/caller_id/{caller_id}`     | Find a caller ID in `sip.conf` |
 
 Changes made from the web UI are written to the config files but don't reload Asterisk. Run **Reload Asterisk** from the CLI to apply them.
 
