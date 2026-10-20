@@ -5,7 +5,7 @@ A Python CLI, web UI, and REST API for managing Asterisk PBX phones: register, r
 It edits the standard Asterisk configuration files (`sip.conf`, `extensions.conf`, `voicemail.conf`) and the Cisco `.cnf.xml` provisioning files served over TFTP. Every change is backed up first and rolled back if anything fails.
 
 > [!WARNING]
-> The web UI and API have **no authentication**. Anyone who can reach the port can reboot phones, reset voicemail PINs, and change call routing. Bind to `127.0.0.1` and put an authenticating reverse proxy in front of it. Never expose it directly to a network.
+> Login is optional and off by default. Without it, anyone who can reach the port can reboot phones, reset voicemail PINs, and change call routing. Always set `ASTERISK_CLI_ALLOWED_NETWORKS`, and set `ASTERISK_CLI_WEB_AUTH=basic` if more than your team can reach the server. Basic auth over plain HTTP sends the password unencrypted, so use HTTPS if the login matters.
 
 ## Features
 
@@ -45,13 +45,17 @@ uv sync --no-dev
 
 Settings are read from environment variables. A `.env` file in the working directory is also loaded.
 
-| Variable                            | Default                                               | Purpose                              |
-| ----------------------------------- | ----------------------------------------------------- | ------------------------------------ |
-| `ASTERISK_CLI_ETC`                  | `/etc/asterisk`                                       | Asterisk configuration directory     |
-| `ASTERISK_CLI_TFTPBOOT`             | `/var/lib/tftpboot`                                   | TFTP directory with `.cnf.xml` files |
-| `ASTERISK_CLI_PHONE_SSH_USER`       | _Required for reboot_                                 | SSH username for rebooting phones    |
-| `ASTERISK_CLI_PHONE_SSH_PASS`       | _Required for reboot_                                 | SSH password for rebooting phones    |
-| `ASTERISK_CLI_CALL_FORWARDING_FILE` | `/etc/asterisk-phone-management/call_forwarding.toml` | Call forwarding roster               |
+| Variable                            | Default                                               | Purpose                                                    |
+| ----------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------- |
+| `ASTERISK_CLI_ETC`                  | `/etc/asterisk`                                       | Asterisk configuration directory                           |
+| `ASTERISK_CLI_TFTPBOOT`             | `/var/lib/tftpboot`                                   | TFTP directory with `.cnf.xml` files                       |
+| `ASTERISK_CLI_PHONE_SSH_USER`       | _Required for reboot_                                 | SSH username for rebooting phones                          |
+| `ASTERISK_CLI_PHONE_SSH_PASS`       | _Required for reboot_                                 | SSH password for rebooting phones                          |
+| `ASTERISK_CLI_CALL_FORWARDING_FILE` | `/etc/asterisk-phone-management/call_forwarding.toml` | Call forwarding roster                                     |
+| `ASTERISK_CLI_ALLOWED_NETWORKS`     | _None (allow all)_                                    | Comma-separated networks allowed to use the web UI and API |
+| `ASTERISK_CLI_WEB_AUTH`             | `none`                                                | `none` or `basic` (one shared login)                       |
+| `ASTERISK_CLI_WEB_USER`             | _Required for basic_                                  | Shared login username                                      |
+| `ASTERISK_CLI_WEB_PASSWORD`         | _Required for basic_                                  | Shared login password                                      |
 
 > [!IMPORTANT]
 > Phone reboots need ASTERISK_CLI_PHONE_SSH_USER and ASTERISK_CLI_PHONE_SSH_PASS.
