@@ -49,12 +49,13 @@ Settings are read from environment variables. A `.env` file in the working direc
 | ----------------------------------- | ----------------------------------------------------- | ------------------------------------ |
 | `ASTERISK_CLI_ETC`                  | `/etc/asterisk`                                       | Asterisk configuration directory     |
 | `ASTERISK_CLI_TFTPBOOT`             | `/var/lib/tftpboot`                                   | TFTP directory with `.cnf.xml` files |
-| `ASTERISK_CLI_PHONE_SSH_USER`       | `admin`                                               | SSH username for rebooting phones    |
-| `ASTERISK_CLI_PHONE_SSH_PASS`       | `cisco`                                               | SSH password for rebooting phones    |
+| `ASTERISK_CLI_PHONE_SSH_USER`       | _Required for reboot_                                 | SSH username for rebooting phones    |
+| `ASTERISK_CLI_PHONE_SSH_PASS`       | _Required for reboot_                                 | SSH password for rebooting phones    |
 | `ASTERISK_CLI_CALL_FORWARDING_FILE` | `/etc/asterisk-phone-management/call_forwarding.toml` | Call forwarding roster               |
 
 > [!IMPORTANT]
-> The SSH defaults are Cisco's factory credentials. Change them on your phones and set these variables.
+> Phone reboots need ASTERISK_CLI_PHONE_SSH_USER and ASTERISK_CLI_PHONE_SSH_PASS.
+> There are no defaults. Use credentials you've changed from the phones' factory values.
 
 ### Call forwarding roster
 

@@ -27,9 +27,10 @@ EXTENSION_LENGTH: int = 4
 MINIMUM_VM_PASSWORD_LENGTH: int = 4
 MAX_CALLER_ID_LENGTH: int = 80
 
-# Default Cisco factory credentials, overridable via environment variables
-PHONE_SSH_USER: str = os.environ.get("ASTERISK_CLI_PHONE_SSH_USER", "admin")
-PHONE_SSH_PASS: str = os.environ.get("ASTERISK_CLI_PHONE_SSH_PASS", "cisco")
+# Phone SSH credentials. No defaults: rebooting a phone fails with a clear
+# error until both variables are set.
+PHONE_SSH_USER: str = os.environ.get("ASTERISK_CLI_PHONE_SSH_USER", "")
+PHONE_SSH_PASS: str = os.environ.get("ASTERISK_CLI_PHONE_SSH_PASS", "")
 
 # Production paths by default; overridable via ASTERISK_CLI_ETC and
 # ASTERISK_CLI_TFTPBOOT in .env
