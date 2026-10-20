@@ -92,7 +92,7 @@ def test_parse_auth_mode(raw: str | None, expected: str) -> None:
 def test_parse_auth_mode_rejects_unknown() -> None:
     """A typo fails at startup instead of silently disabling auth."""
     with pytest.raises(AsteriskCliError, match="'none' or 'basic'"):
-        parse_auth_mode("basic")
+        parse_auth_mode("something else")
 
 
 @pytest.mark.parametrize(
