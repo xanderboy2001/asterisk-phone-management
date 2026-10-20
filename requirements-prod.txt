@@ -30,7 +30,7 @@ attrs==26.1.0
     # via aiohttp
 bidict==0.24.1
     # via python-socketio
-certifi==2026.10.18
+certifi==2026.10.19
     # via
     #   httpcore
     #   httpx
