@@ -3,6 +3,7 @@
 *-review.md
 *-output.txt
 requirements-audit.txt
+*.patch
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
