@@ -2,10 +2,14 @@
 
 import pytest
 
+from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.core.validators import (
+    ensure_valid,
+    validate_caller_id,
     validate_email,
     validate_extension,
     validate_mac_addr,
+    validate_vm_field,
     validate_vm_password,
 )
 
@@ -114,3 +118,57 @@ def test_validate_vm_password(password: str, expected: bool | str) -> None:
     """
     result = validate_vm_password(password)
     assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("caller_id", "expected"),
+    [
+        ('"Jane Example" <1001>', True),
+        ("", "Caller ID cannot be empty."),
+        ("   ", "Caller ID cannot be empty."),
+        (
+            '"x"\n[evil](phone)\nsecret=1',
+            "Caller ID cannot contain line breaks or semicolons.",
+        ),
+        ('"x"\r<1001>', "Caller ID cannot contain line breaks or semicolons."),
+        (
+            '"x"\x00<1001>',
+            "Caller ID cannot contain line breaks or semicolons.",
+        ),
+        (
+            '"x" <1001>;note',
+            "Caller ID cannot contain line breaks or semicolons.",
+        ),
+        ("a" * 81, "Caller ID must be at most 80 characters."),
+    ],
+)
+def test_validate_caller_id(caller_id: str, expected: bool | str) -> None:
+    """Reject empty, oversized, and line-breaking caller IDs."""
+    assert validate_caller_id(caller_id) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("Jane Example", True),
+        ("jane@example.com", True),
+        ("a,b", False),
+        ("a|b", False),
+        ("a;b", False),
+        ("a\nb", False),
+    ],
+)
+def test_validate_vm_field(value: str, expected: bool) -> None:
+    """Reject characters that are structural in voicemail.conf."""
+    assert (validate_vm_field(value) is True) == expected
+
+
+def test_ensure_valid_passes_on_true() -> None:
+    """A True result does not raise."""
+    ensure_valid(result=True)
+
+
+def test_ensure_valid_raises_message() -> None:
+    """An error string is raised as AsteriskCliError."""
+    with pytest.raises(AsteriskCliError, match="bad value"):
+        ensure_valid("bad value")

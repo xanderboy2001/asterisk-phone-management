@@ -81,7 +81,14 @@ extend-select = [
   "UP",
   "W",
 ]
-ignore = ["missing-trailing-comma", "single-line-implicit-string-concatenation"]
+ignore = [
+  "missing-trailing-comma",
+  "single-line-implicit-string-concatenation",
+  # ruff only sees `raise` written directly in a function, so Raises:
+  # entries for exceptions raised by helpers (ensure_valid, ask) are
+  # reported as extraneous. Those entries are correct; keep them.
+  "docstring-extraneous-exception",
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [

@@ -25,6 +25,7 @@ load_dotenv()
 MAC_ADDRESS_LENGTH: int = 12
 EXTENSION_LENGTH: int = 4
 MINIMUM_VM_PASSWORD_LENGTH: int = 4
+MAX_CALLER_ID_LENGTH: int = 80
 
 # Default Cisco factory credentials, overridable via environment variables
 PHONE_SSH_USER: str = os.environ.get("ASTERISK_CLI_PHONE_SSH_USER", "admin")

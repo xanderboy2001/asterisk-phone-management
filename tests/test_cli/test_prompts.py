@@ -6,6 +6,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from asterisk_phone_management.cli.prompts import (
+    _validate_vm_email,
     ask,
     prompt_search_method,
     prompt_select_caller_id,
@@ -290,3 +291,17 @@ def test_ask_wrong_type_raises(mocker: MockerFixture) -> None:
     question.ask.return_value = 42
     with pytest.raises(AsteriskCliError, match="Unexpected answer type: int"):
         ask(question, str)
+
+
+@pytest.mark.parametrize(
+    ("email", "expected"),
+    [
+        ("jane@example.com", True),
+        ("jane,x@example.com", False),
+        ("jane|x@example.com", False),
+        ("not-an-email", False),
+    ],
+)
+def test_validate_vm_email(email: str, expected: bool) -> None:
+    """Emails must be well-formed and safe for voicemail.conf."""
+    assert (_validate_vm_email(email) is True) == expected

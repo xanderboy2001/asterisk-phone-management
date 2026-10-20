@@ -370,3 +370,46 @@ def test_replace_phone_os_error_handling(mocker: MockerFixture) -> None:
         match="File system error while replacing MAC address",
     ):
         replace_phone("ext", "1001")
+
+
+@pytest.mark.usefixtures("mock_asterisk_env")
+@pytest.mark.parametrize(
+    ("phone", "voicemail"),
+    [
+        (
+            Phone(extension="12", mac_address="999999999999", caller_id="x"),
+            None,
+        ),
+        (Phone(extension="9999", mac_address="ZZ", caller_id="x"), None),
+        (
+            Phone(
+                extension="9999",
+                mac_address="999999999999",
+                caller_id='"x"\n[evil](phone)',
+            ),
+            None,
+        ),
+        (
+            Phone(extension="9999", mac_address="999999999999", caller_id="x"),
+            Voicemail(name="Jane, Admin", email="jane@example.com"),
+        ),
+        (
+            Phone(extension="9999", mac_address="999999999999", caller_id="x"),
+            Voicemail(name="Jane", email="jane|x@example.com"),
+        ),
+        (
+            Phone(extension="9999", mac_address="999999999999", caller_id="x"),
+            Voicemail(name="Jane", email="not-an-email"),
+        ),
+    ],
+)
+def test_register_phone_rejects_invalid_fields(
+    phone: Phone, voicemail: Voicemail | None, mocker: MockerFixture
+) -> None:
+    """Invalid fields are rejected before anything is provisioned."""
+    mock_provision = mocker.patch(
+        "asterisk_phone_management.services.provisioning._provision_phone"
+    )
+    with pytest.raises(AsteriskCliError):
+        register_phone(phone, voicemail)
+    mock_provision.assert_not_called()

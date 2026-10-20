@@ -5,8 +5,10 @@ import re
 from asterisk_phone_management.core.constants import (
     EXTENSION_LENGTH,
     MAC_ADDRESS_LENGTH,
+    MAX_CALLER_ID_LENGTH,
     MINIMUM_VM_PASSWORD_LENGTH,
 )
+from asterisk_phone_management.core.exceptions import AsteriskCliError
 
 _EMAIL_PARTS_COUNT: int = 2
 _MAX_DOMAIN_LENGTH: int = 253
@@ -14,6 +16,11 @@ _MIN_DOMAIN_LABELS: int = 2
 
 _LABEL_REGEX = re.compile(r"^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$")
 _TLD_REGEX = re.compile(r"^[a-zA-Z]{2,}$")
+
+# characters that would end the current config line or start a comment.
+_LINE_BREAKING_CHARS: frozenset[str] = frozenset("\r\n\x00;")
+# voicemail.conf also uses commas and pipes as field separators.
+_VM_FIELD_FORBIDDEN_CHARS: frozenset[str] = _LINE_BREAKING_CHARS | {",", "|"}
 
 
 def validate_extension(extension: str) -> bool | str:
@@ -31,6 +38,53 @@ def validate_extension(extension: str) -> bool | str:
         return f"Extension must be {EXTENSION_LENGTH} digits."
 
     return True
+
+
+def validate_caller_id(caller_id: str) -> bool | str:
+    """Check that a caller ID is safe to write to sip.conf.
+
+    Args:
+        caller_id: The caller ID value to validate.
+
+    Returns:
+        True if the caller ID is valid, otherwise an error message.
+    """
+    if not caller_id.strip():
+        return "Caller ID cannot be empty."
+    if any(char in _LINE_BREAKING_CHARS for char in caller_id):
+        return "Caller ID cannot contain line breaks or semicolons."
+    if len(caller_id) > MAX_CALLER_ID_LENGTH:
+        return f"Caller ID must be at most {MAX_CALLER_ID_LENGTH} characters."
+    return True
+
+
+def validate_vm_field(value: str) -> bool | str:
+    """Check that a value is safe to write as a voicemain.conf field.
+
+    Args:
+        value: The voicemail name or email to validate.
+
+    Returns:
+        True if the value is valid, otherwise an error message.
+    """
+    if any(char in _VM_FIELD_FORBIDDEN_CHARS for char in value):
+        return (
+            "Value cannot contain line breaks, semicolons, commas, or pipes."
+        )
+    return True
+
+
+def ensure_valid(result: bool | str) -> None:  # ruff: ignore[boolean-type-hint-positional-argument]
+    """Raise if a validator result is an error message.
+
+    Args:
+        result: The value returned by one of the ``validate_*`` functions.
+
+    Raises:
+        AsteriskCliError: If ``result`` is not True.
+    """
+    if result is not True:
+        raise AsteriskCliError(str(result))
 
 
 def validate_mac_addr(mac_address: str) -> bool | str:

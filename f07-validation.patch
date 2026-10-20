@@ -1,0 +1,293 @@
+diff --git a/tests/test_cli/test_prompts.py b/tests/test_cli/test_prompts.py
+index 5528b8d..c8ce2df 100644
+--- a/tests/test_cli/test_prompts.py
++++ b/tests/test_cli/test_prompts.py
+@@ -6,6 +6,7 @@ import pytest
+ from pytest_mock import MockerFixture
+ 
+ from asterisk_phone_management.cli.prompts import (
++    _validate_vm_email,
+     ask,
+     prompt_search_method,
+     prompt_select_caller_id,
+@@ -290,3 +291,17 @@ def test_ask_wrong_type_raises(mocker: MockerFixture) -> None:
+     question.ask.return_value = 42
+     with pytest.raises(AsteriskCliError, match="Unexpected answer type: int"):
+         ask(question, str)
++
++
++@pytest.mark.parametrize(
++    ("email", "expected"),
++    [
++        ("jane@example.com", True),
++        ("jane,x@example.com", False),
++        ("jane|x@example.com", False),
++        ("not-an-email", False),
++    ],
++)
++def test_validate_vm_email(email: str, expected: bool) -> None:
++    """Emails must be well-formed and safe for voicemail.conf."""
++    assert (_validate_vm_email(email) is True) == expected
+diff --git a/tests/test_core/test_validators.py b/tests/test_core/test_validators.py
+index 836f180..fc0c2be 100644
+--- a/tests/test_core/test_validators.py
++++ b/tests/test_core/test_validators.py
+@@ -2,10 +2,14 @@
+ 
+ import pytest
+ 
++from asterisk_phone_management.core.exceptions import AsteriskCliError
+ from asterisk_phone_management.core.validators import (
++    ensure_valid,
++    validate_caller_id,
+     validate_email,
+     validate_extension,
+     validate_mac_addr,
++    validate_vm_field,
+     validate_vm_password,
+ )
+ 
+@@ -114,3 +118,57 @@ def test_validate_vm_password(password: str, expected: bool | str) -> None:
+     """
+     result = validate_vm_password(password)
+     assert result == expected
++
++
++@pytest.mark.parametrize(
++    ("caller_id", "expected"),
++    [
++        ('"Jane Example" <1001>', True),
++        ("", "Caller ID cannot be empty."),
++        ("   ", "Caller ID cannot be empty."),
++        (
++            '"x"\n[evil](phone)\nsecret=1',
++            "Caller ID cannot contain line breaks or semicolons.",
++        ),
++        ('"x"\r<1001>', "Caller ID cannot contain line breaks or semicolons."),
++        (
++            '"x"\x00<1001>',
++            "Caller ID cannot contain line breaks or semicolons.",
++        ),
++        (
++            '"x" <1001>;note',
++            "Caller ID cannot contain line breaks or semicolons.",
++        ),
++        ("a" * 81, "Caller ID must be at most 80 characters."),
++    ],
++)
++def test_validate_caller_id(caller_id: str, expected: bool | str) -> None:
++    """Reject empty, oversized, and line-breaking caller IDs."""
++    assert validate_caller_id(caller_id) == expected
++
++
++@pytest.mark.parametrize(
++    ("value", "expected"),
++    [
++        ("Jane Example", True),
++        ("jane@example.com", True),
++        ("a,b", False),
++        ("a|b", False),
++        ("a;b", False),
++        ("a\nb", False),
++    ],
++)
++def test_validate_vm_field(value: str, expected: bool) -> None:
++    """Reject characters that are structural in voicemail.conf."""
++    assert (validate_vm_field(value) is True) == expected
++
++
++def test_ensure_valid_passes_on_true() -> None:
++    """A True result does not raise."""
++    ensure_valid(result=True)
++
++
++def test_ensure_valid_raises_message() -> None:
++    """An error string is raised as AsteriskCliError."""
++    with pytest.raises(AsteriskCliError, match="bad value"):
++        ensure_valid("bad value")
+diff --git a/tests/test_services/test_caller_id.py b/tests/test_services/test_caller_id.py
+index 2ab7cef..8e34baf 100644
+--- a/tests/test_services/test_caller_id.py
++++ b/tests/test_services/test_caller_id.py
+@@ -5,7 +5,10 @@ from pathlib import Path
+ import pytest
+ from pytest_mock import MockerFixture
+ 
+-from asterisk_phone_management.core.exceptions import FileTransactionError
++from asterisk_phone_management.core.exceptions import (
++    AsteriskCliError,
++    FileTransactionError,
++)
+ from asterisk_phone_management.schemas.models import ConfigMatch
+ from asterisk_phone_management.services.caller_id import (
+     _apply_caller_id_updates,
+@@ -103,3 +106,23 @@ def test_edit_caller_id_file_error(
+             ],
+             '"New" <1001>',
+         )
++
++
++@pytest.mark.parametrize(
++    "payload",
++    ['"x"\n[evil](phone)\nsecret=1', '"x" <1001>;note', ""],
++)
++def test_edit_caller_id_rejects_injection(
++    mock_asterisk_env: dict[str, Path], payload: str
++) -> None:
++    """Line-breaking caller IDs never reach sip.conf."""
++    sip_conf = mock_asterisk_env["sip_conf"]
++    before = sip_conf.read_text(encoding="utf-8")
++    match = ConfigMatch(
++        file_path=sip_conf,
++        line_number=6,
++        matched_text='callerid="John Doe" <1001>',
++    )
++    with pytest.raises(AsteriskCliError):
++        edit_caller_id([match], payload)
++    assert sip_conf.read_text(encoding="utf-8") == before
+diff --git a/tests/test_services/test_device_actions.py b/tests/test_services/test_device_actions.py
+index b6eb8db..97d6759 100644
+--- a/tests/test_services/test_device_actions.py
++++ b/tests/test_services/test_device_actions.py
+@@ -283,3 +283,13 @@ def test_reboot_phone_failure(mocker: MockerFixture) -> None:
+         DeviceCommunicationError, match="Failed to deliver reboot command"
+     ):
+         reboot_phone("1001")
++
++
++def test_reboot_phone_rejects_invalid_extension(mocker: MockerFixture) -> None:
++    """A partial extension is rejected before any phone is looked up."""
++    mock_search = mocker.patch(
++        "asterisk_phone_management.services.device_actions.search_for_extension"
++    )
++    with pytest.raises(AsteriskCliError, match="4 digits"):
++        reboot_phone("1")
++    mock_search.assert_not_called()
+diff --git a/tests/test_services/test_provisioning.py b/tests/test_services/test_provisioning.py
+index 411a6b4..26fcb68 100644
+--- a/tests/test_services/test_provisioning.py
++++ b/tests/test_services/test_provisioning.py
+@@ -370,3 +370,46 @@ def test_replace_phone_os_error_handling(mocker: MockerFixture) -> None:
+         match="File system error while replacing MAC address",
+     ):
+         replace_phone("ext", "1001")
++
++
++@pytest.mark.usefixtures("mock_asterisk_env")
++@pytest.mark.parametrize(
++    ("phone", "voicemail"),
++    [
++        (
++            Phone(extension="12", mac_address="999999999999", caller_id="x"),
++            None,
++        ),
++        (Phone(extension="9999", mac_address="ZZ", caller_id="x"), None),
++        (
++            Phone(
++                extension="9999",
++                mac_address="999999999999",
++                caller_id='"x"\n[evil](phone)',
++            ),
++            None,
++        ),
++        (
++            Phone(extension="9999", mac_address="999999999999", caller_id="x"),
++            Voicemail(name="Jane, Admin", email="jane@example.com"),
++        ),
++        (
++            Phone(extension="9999", mac_address="999999999999", caller_id="x"),
++            Voicemail(name="Jane", email="jane|x@example.com"),
++        ),
++        (
++            Phone(extension="9999", mac_address="999999999999", caller_id="x"),
++            Voicemail(name="Jane", email="not-an-email"),
++        ),
++    ],
++)
++def test_register_phone_rejects_invalid_fields(
++    phone: Phone, voicemail: Voicemail | None, mocker: MockerFixture
++) -> None:
++    """Invalid fields are rejected before anything is provisioned."""
++    mock_provision = mocker.patch(
++        "asterisk_phone_management.services.provisioning._provision_phone"
++    )
++    with pytest.raises(AsteriskCliError):
++        register_phone(phone, voicemail)
++    mock_provision.assert_not_called()
+diff --git a/tests/test_services/test_voicemail.py b/tests/test_services/test_voicemail.py
+index 08d5430..3a7f93f 100644
+--- a/tests/test_services/test_voicemail.py
++++ b/tests/test_services/test_voicemail.py
+@@ -50,3 +50,28 @@ def test_reset_vm_password_file_error(monkeypatch: pytest.MonkeyPatch) -> None:
+ 
+     with pytest.raises(FileTransactionError, match="Failed to modify"):
+         reset_vm_password("1001", "5678")
++
++
++@pytest.mark.usefixtures("mock_asterisk_env")
++@pytest.mark.parametrize(
++    ("extension", "new_pin"),
++    [("1", "5678"), ("1001", "12\\"), ("1001", "\\g<0>"), ("1001", "12a4")],
++)
++def test_reset_vm_password_rejects_invalid_input(
++    extension: str, new_pin: str
++) -> None:
++    """Invalid extensions and PINs are rejected before any file is read."""
++    with pytest.raises(AsteriskCliError):
++        reset_vm_password(extension, new_pin)
++
++
++def test_reset_vm_password_only_changes_pin(
++    mock_asterisk_env: dict[str, Path],
++) -> None:
++    """The rest of the mailbox line is left exactly as it was."""
++    vm_conf = mock_asterisk_env["vm_conf"]
++    reset_vm_password("1001", "9876")
++    assert (
++        "1001 = 9876, John Doe, john@example.com,,attach=yes|delete=1"
++        in vm_conf.read_text(encoding="utf-8")
++    )
+diff --git a/tests/test_web/test_pages/test_reboot_phone.py b/tests/test_web/test_pages/test_reboot_phone.py
+index 01b2f8d..a6762d6 100644
+--- a/tests/test_web/test_pages/test_reboot_phone.py
++++ b/tests/test_web/test_pages/test_reboot_phone.py
+@@ -94,3 +94,17 @@ async def test_reboot_generic_cli_error(
+     with user.scope(ui.dialog):
+         user.find(marker="confirm-yes").click()
+     await user.should_see("An unexpected error occurred: boom")
++
++
++async def test_reboot_phone_invalid_extension_is_rejected(
++    user: User, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    """A partial extension is rejected before the confirm dialog opens."""
++    mock_service = MagicMock()
++    monkeypatch.setattr(reboot_page, "reboot_phone", mock_service)
++    await user.open("/reboot-phone")
++    user.find("Enter an Extension").type("1")
++    user.find("Submit").click()
++    await user.should_see("Extension must be 4 digits.")
++    await user.should_not_see(marker="confirm-yes")
++    mock_service.assert_not_called()
+diff --git a/tests/test_web/test_pages/test_voicemail_reset.py b/tests/test_web/test_pages/test_voicemail_reset.py
+index bd179bb..dedf12b 100644
+--- a/tests/test_web/test_pages/test_voicemail_reset.py
++++ b/tests/test_web/test_pages/test_voicemail_reset.py
+@@ -83,3 +83,17 @@ async def test_voicemail_reset_failure(
+     await user.should_see(
+         "Failed to reset voicemail password for 1234: disk full"
+     )
++
++
++async def test_voicemail_reset_invalid_extension_is_rejected(
++    user: User, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    """A partial extension is rejected before the confirm dialog opens."""
++    mock_service = MagicMock()
++    monkeypatch.setattr(voicemail_page, "reset_vm_password", mock_service)
++    await user.open("/voicemail-reset")
++    user.find("Enter an Extension").type("1")
++    user.find("Submit").click()
++    await user.should_see("Extension must be 4 digits.")
++    await user.should_not_see(marker="confirm-yes")
++    mock_service.assert_not_called()

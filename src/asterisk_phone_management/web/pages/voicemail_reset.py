@@ -6,6 +6,7 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     FileTransactionError,
 )
+from asterisk_phone_management.core.validators import validate_extension
 from asterisk_phone_management.services.voicemail import reset_vm_password
 from asterisk_phone_management.web.utils import theme
 from asterisk_phone_management.web.utils.inputs import extension_input
@@ -27,6 +28,11 @@ async def on_submit(extension: str | None) -> None:
     extension = (extension or "").strip()
     if not extension:
         ui.notify("No data!", type="negative")
+        return
+
+    validation_result = validate_extension(extension)
+    if validation_result is not True:
+        ui.notify(str(validation_result), type="negative", textColor="dark")
         return
 
     with ui.dialog() as dialog, ui.card():

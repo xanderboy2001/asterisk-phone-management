@@ -6,6 +6,7 @@ from nicegui import ui
 from nicegui.elements.input import Input
 
 from asterisk_phone_management.core.validators import (
+    validate_caller_id,
     validate_extension,
     validate_mac_addr,
 )
@@ -97,9 +98,12 @@ def caller_id_input(
         placeholder: Placeholder text shown when the input is empty.
 
     Returns:
-        The configured, styled Input element.
+        The configured, styled Input element with caller ID validation.
     """
     return styled_input(
         label=label,
         placeholder=placeholder,
+        validation=lambda v: to_nicegui_validation(
+            validate_caller_id(v) if v else True
+        ),
     )

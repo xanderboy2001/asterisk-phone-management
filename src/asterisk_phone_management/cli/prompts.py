@@ -17,9 +17,11 @@ from asterisk_phone_management.core.constants import (
 )
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.core.validators import (
+    validate_caller_id,
     validate_email,
     validate_extension,
     validate_mac_addr,
+    validate_vm_field,
     validate_vm_password,
 )
 from asterisk_phone_management.schemas.models import ConfigMatch
@@ -91,7 +93,9 @@ def read_caller_id(extension: str) -> str:
         A caller ID string.
     """
     question: questionary.Question = questionary.text(
-        message="Enter a caller ID", default=f'"{extension}" <{extension}>'
+        message="Enter a caller ID",
+        default=f'"{extension}" <{extension}>',
+        validate=validate_caller_id,
     )
     response: str = ask(question=question, expected=str)
 
@@ -107,9 +111,28 @@ def read_name() -> str:
         The stripped name string for voicemail setup.
     """
     response: str = ask(
-        questionary.text(message="Enter a name to use for voicemail"), str
+        questionary.text(
+            message="Enter a name to use for voicemail",
+            validate=validate_vm_field,
+        ),
+        str,
     )
     return response.strip()
+
+
+def _validate_vm_email(email: str) -> bool | str:
+    """Validate an email for both format and voicemail.conf safety.
+
+    Args:
+        email: The email address to validate.
+
+    Returns:
+        True if the email is valid, otherwise an error message.
+    """
+    field_result = validate_vm_field(email)
+    if field_result is not True:
+        return field_result
+    return validate_email(email)
 
 
 def read_email() -> str:
@@ -121,7 +144,7 @@ def read_email() -> str:
     response: str = ask(
         questionary.text(
             message="Enter an email address to use for voicemail",
-            validate=validate_email,
+            validate=_validate_vm_email,
         ),
         str,
     )
