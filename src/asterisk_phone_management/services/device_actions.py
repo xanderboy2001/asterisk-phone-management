@@ -71,6 +71,32 @@ def _get_ip_address(mac_address: str) -> str:
     return ip_address
 
 
+def _get_phone_credentials() -> tuple[str, str]:
+    """Return the configured phone SSH username and password.
+
+    Returns:
+        The username and password, in that order.
+
+    Raises:
+        AsteriskCliError: If either value is unset or empty.
+    """
+    user = PHONE_SSH_USER
+    password = PHONE_SSH_PASS
+    missing: list[str] = []
+    if not user.strip():
+        missing.append("ASTERISK_CLI_PHONE_SSH_USER")
+    if not password.strip():
+        missing.append("ASTERISK_CLI_PHONE_SSH_PASS")
+    if missing:
+        msg = (
+            "Phone SSH credentials are not configured. Set "
+            f"{' and '.join(missing)}."
+        )
+        log.error(msg)
+        raise AsteriskCliError(msg)
+    return user, password
+
+
 def _send_reboot_command(child: "pexpect.spawn[str]", password: str) -> None:
     """Send SSH debug authentication and reboot commands to a Cisco IP phone.
 
@@ -283,20 +309,22 @@ def reboot_phone(extension: str) -> None:
         extension: The target phone extension.
 
     Raises:
-        AsteriskCliError: If the extension is invalid or no MAC address
-            can be found for it.
+        AsteriskCliError: If the extension is invalid, the phone SSH
+            credentials are not configured, or no MAC address can be
+            found for the extension.
         DeviceCommunicationError: If the phone's IP address cannot be
             resolved, or the reboot command could not be delivered.
     """
     ensure_valid(validate_extension(extension))
+    username, password = _get_phone_credentials()
     extension_matches: list[ConfigMatch] = search_for_extension(extension)
     mac_address: str = get_mac_from_ext(extension_matches)
     ip_address: str = _get_ip_address(mac_address)
 
     success = _invoke_phone_reboot(
         ip_address=ip_address,
-        username=PHONE_SSH_USER,
-        password=PHONE_SSH_PASS,
+        username=username,
+        password=password,
     )
 
     if not success:
