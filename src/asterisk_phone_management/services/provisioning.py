@@ -511,15 +511,12 @@ def replace_phone(search_method: str, search_key: str) -> None:
 
     # 3. Reject a MAC that is unchanged or already in use.
     if new_mac_address.upper() == mac_address.upper():
-        msg = (
-            f"New MAC address matches the current one ({mac_address}). "
-            "Nothing to replace."
-        )
-        log.error(msg)
+        msg = "New MAC address matches the current one. Nothing to replace."
+        log.error("New MAC address matches the current one; replacement aborted.")
         raise AsteriskCliError(msg)
     if search_for_mac_address(new_mac_address):
-        msg = f"Phone with MAC address {new_mac_address} already exists."
-        log.error(msg)
+        msg = "Phone with the provided MAC address already exists."
+        log.error("Phone with provided MAC address already exists.")
         raise AsteriskServiceError(msg)
 
     # 4-5. Create the new .cnf.xml, then swap the MAC in both config files.
@@ -551,11 +548,11 @@ def replace_phone(search_method: str, search_key: str) -> None:
         f"{SEP_PREFIX}{mac_address}{XML_CONFIG_EXTENSION}"
     )
     if not old_cnf_file.exists():
-        log.warning("No old .cnf.xml file found for SEP%s.", mac_address)
+        log.warning("No old .cnf.xml file found for the previous phone.")
     else:
         try:
             _remove_cnf_xml(old_cnf_file)
-            log.info("Deleted old .cnf.xml file for SEP%s.", mac_address)
+            log.info("Deleted old .cnf.xml file for the previous phone.")
         except FileTransactionError as err:
             log.warning(
                 "Replacement succeeded, but the old file %s could not be "
@@ -564,9 +561,4 @@ def replace_phone(search_method: str, search_key: str) -> None:
                 err,
             )
 
-    log.info(
-        "Extension %s moved from SEP%s to SEP%s.",
-        extension,
-        mac_address,
-        new_mac_address,
-    )
+    log.info("Extension %s was moved to the new phone.", extension)
