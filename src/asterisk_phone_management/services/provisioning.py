@@ -426,10 +426,6 @@ def remove_phone(search_method: str, search_key: str) -> None:
             or if a MAC/extension cannot be resolved from the search.
         KeyboardInterrupt: If the user cancels the confirmation prompt.
     """
-    extension: str = ""
-    mac_address: str = ""
-    found: list[ConfigMatch] = []
-
     if search_method == SEARCH_BY_EXTENSION:
         extension = search_key
         found = search_for_extension(extension)
@@ -474,22 +470,29 @@ def remove_phone(search_method: str, search_key: str) -> None:
 
 
 def replace_phone(search_method: str, search_key: str) -> None:
-    """Replace a phone MAC address.
+    """Move an extension to a new phone by swapping its MAC address.
+
+    Nothing is changed until the new MAC address has been entered and
+    checked. The new phone's ``.cnf.xml`` is created and both config files
+    are updated before the old phone's ``.cnf.xml`` is deleted, so a
+    failure at any point leaves the old phone working.
 
     Args:
         search_method: Method to search ('ext' or 'mac').
         search_key: Search string value.
 
     Raises:
-        AsteriskCliError: If no valid search option was selected.
+        AsteriskCliError: If no valid search option was selected, the old
+            phone can't be found, or the new MAC address is the same as
+            the current one.
         AsteriskServiceError: If the new MAC address is already
-            registered, or if the update fails. sip.conf and
-            extensions.conf are rolled back to their prior state before
-            this is raised.
+            registered, or if creating the new ``.cnf.xml`` or updating
+            the config files fails. On failure, sip.conf and
+            extensions.conf are rolled back, any new ``.cnf.xml`` is
+            removed, and the old ``.cnf.xml`` is left in place.
+        KeyboardInterrupt: If the user cancels the MAC address prompt.
     """
-    extension: str = ""
-    mac_address: str = ""
-
+    # 1. Find the current phone. Nothing has been changed yet.
     if search_method == SEARCH_BY_EXTENSION:
         extension = search_key
         extension_matches: list[ConfigMatch] = search_for_extension(extension)
@@ -503,25 +506,28 @@ def replace_phone(search_method: str, search_key: str) -> None:
         log.error(msg)
         raise AsteriskCliError(msg)
 
-    old_cnf_file: Path = TFTPBOOT / (
-        f"{SEP_PREFIX}{mac_address}{XML_CONFIG_EXTENSION}"
-    )
-    if old_cnf_file.exists():
-        old_cnf_file.unlink()
-        log.info("Deleted old .cnf.xml file for SEP%s.", mac_address)
-    else:
-        log.warning("No old .cnf.xml file found for SEP%s.", mac_address)
-
+    # 2. Ask for the new MAC address. Cancelling here changes nothing.
     new_mac_address: str = read_mac_addr()
-    existing_macs: list[ConfigMatch] = search_for_mac_address(new_mac_address)
-    if existing_macs:
-        msg = f"Phone with MAC address {new_mac_address} already exists."
-        log.error(msg)
+
+    # 3. Reject a MAC that is unchanged or already in use.
+    if new_mac_address.upper() == mac_address.upper():
+        msg = "New MAC address matches the current one. Nothing to replace."
+        log.error("New MAC address matches the current one; replacement aborted.")
+        raise AsteriskCliError(msg)
+    if search_for_mac_address(new_mac_address):
+        msg = "Phone with the provided MAC address already exists."
+        log.error("Phone with provided MAC address already exists.")
         raise AsteriskServiceError(msg)
 
-    _generate_cnf_xml(extension=extension, mac_address=new_mac_address)
-
+    # 4-5. Create the new .cnf.xml, then swap the MAC in both config files.
+    # The path is recorded before creating the file so a partly written
+    # file is removed too.
+    new_cnf_file: Path = TFTPBOOT / (
+        f"{SEP_PREFIX}{new_mac_address}{XML_CONFIG_EXTENSION}"
+    )
+    created_files: list[Path] = [new_cnf_file]
     try:
+        _generate_cnf_xml(extension=extension, mac_address=new_mac_address)
         with ConfigTransaction((SIP_CONF, EXTENSIONS_CONF)):
             for config_file in (SIP_CONF, EXTENSIONS_CONF):
                 _replace_mac_in_file(
@@ -529,9 +535,29 @@ def replace_phone(search_method: str, search_key: str) -> None:
                     old_mac=mac_address,
                     new_mac=new_mac_address,
                 )
-    except OSError as err:
+    except (OSError, AsteriskCliError) as err:
+        _cleanup_created_files(created_files)
         msg = f"File system error while replacing MAC address: {err}"
+        log.error(msg)
         raise AsteriskServiceError(msg) from err
-
     log.info("Updated sip.conf and extensions.conf with new MAC address.")
-    log.info("Operation completed.")
+
+    # 6. Remove the old phone's .cnf.xml. The replacement already works, so
+    # a failure here is only a leftover file, not an error.
+    old_cnf_file: Path = TFTPBOOT / (
+        f"{SEP_PREFIX}{mac_address}{XML_CONFIG_EXTENSION}"
+    )
+    if not old_cnf_file.exists():
+        log.warning("No old .cnf.xml file found for the previous phone.")
+    else:
+        try:
+            _remove_cnf_xml(old_cnf_file)
+            log.info("Deleted old .cnf.xml file for the previous phone.")
+        except FileTransactionError as err:
+            log.warning(
+                "Replacement succeeded, but the previous phone configuration "
+                "file could not be deleted (%s). Remove it manually.",
+                err,
+            )
+
+    log.info("Phone replacement completed successfully.")
