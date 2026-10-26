@@ -9,6 +9,7 @@ from pytest_mock import MockerFixture
 from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     AsteriskServiceError,
+    FileTransactionError,
 )
 from asterisk_phone_management.schemas.models import Phone, Voicemail
 from asterisk_phone_management.services.provisioning import (
@@ -294,82 +295,218 @@ def test_remove_phone_user_cancels(mocker: MockerFixture) -> None:
     mock_deprov.assert_not_called()
 
 
-@pytest.mark.usefixtures("mock_asterisk_env")
-def test_replace_phone_by_ext_success(mocker: MockerFixture) -> None:
+# --- replace_phone (F-09): the old phone survives every failure ---
+
+OLD_MAC = "112233445566"
+NEW_MAC = "AABBCCDDEEFF"
+PROVISIONING = "asterisk_phone_management.services.provisioning"
+
+
+def _new_xml(env: dict[str, Path]) -> Path:
+    """Return where the replacement phone's .cnf.xml would be created.
+
+    Args:
+        env: The ``mock_asterisk_env`` fixture.
+
+    Returns:
+        The path of the new phone's ``.cnf.xml``.
+    """
+    return env["tftp_dir"] / f"SEP{NEW_MAC}.cnf.xml"
+
+
+def _snapshot(env: dict[str, Path]) -> tuple[str, str]:
+    """Read both config files so a test can check they are unchanged.
+
+    Args:
+        env: The ``mock_asterisk_env`` fixture.
+
+    Returns:
+        The contents of sip.conf and extensions.conf.
+    """
+    return (
+        env["sip_conf"].read_text(encoding="utf-8"),
+        env["ext_conf"].read_text(encoding="utf-8"),
+    )
+
+
+def _assert_untouched(env: dict[str, Path], before: tuple[str, str]) -> None:
+    """Assert the old phone is intact and no new file was left behind.
+
+    Args:
+        env: The ``mock_asterisk_env`` fixture.
+        before: Config contents captured before the call.
+    """
+    assert env["existing_xml"].exists()
+    assert not _new_xml(env).exists()
+    assert _snapshot(env) == before
+
+
+@pytest.mark.parametrize(
+    ("method", "key"), [("ext", "1001"), ("mac", OLD_MAC)]
+)
+def test_replace_phone_success(
+    mock_asterisk_env: dict[str, Path],
+    mocker: MockerFixture,
+    method: str,
+    key: str,
+) -> None:
+    """The new XML exists, both configs use the new MAC, the old XML is gone."""
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
+
+    replace_phone(method, key)
+
+    sip, ext = _snapshot(mock_asterisk_env)
+    assert f"[SEP{NEW_MAC}]" in sip
+    assert OLD_MAC not in sip
+    assert f"SIP/SEP{NEW_MAC}" in ext
+    assert OLD_MAC not in ext
+    new_xml = _new_xml(mock_asterisk_env)
+    assert new_xml.exists()
+    assert "<featureLabel>1001</featureLabel>" in new_xml.read_text(
+        encoding="utf-8"
+    )
+    assert not mock_asterisk_env["existing_xml"].exists()
+
+
+def test_replace_phone_cancel_at_prompt(
+    mock_asterisk_env: dict[str, Path], mocker: MockerFixture
+) -> None:
+    """Ctrl+C at the MAC prompt changes nothing."""
+    before = _snapshot(mock_asterisk_env)
     mocker.patch(
-        "asterisk_phone_management.services.provisioning.read_mac_addr",
-        return_value="AABBCCDDEEFF",
+        f"{PROVISIONING}.read_mac_addr", side_effect=KeyboardInterrupt
     )
-    mock_generate = mocker.patch(
-        "asterisk_phone_management.services.provisioning._generate_cnf_xml"
+    with pytest.raises(KeyboardInterrupt):
+        replace_phone("ext", "1001")
+    _assert_untouched(mock_asterisk_env, before)
+
+
+def test_replace_phone_same_mac(
+    mock_asterisk_env: dict[str, Path], mocker: MockerFixture
+) -> None:
+    """Entering the current MAC (any case) is rejected with a clear message."""
+    before = _snapshot(mock_asterisk_env)
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=OLD_MAC.lower())
+    with pytest.raises(AsteriskCliError, match="matches the current one"):
+        replace_phone("ext", "1001")
+    assert mock_asterisk_env["existing_xml"].exists()
+    assert _snapshot(mock_asterisk_env) == before
+
+
+def test_replace_phone_duplicate_mac(
+    mock_asterisk_env: dict[str, Path], mocker: MockerFixture
+) -> None:
+    """A MAC used by another phone is rejected before anything changes."""
+    sip = mock_asterisk_env["sip_conf"]
+    sip.write_text(
+        sip.read_text(encoding="utf-8") + f"\n[SEP{NEW_MAC}](phone)\n",
+        encoding="utf-8",
     )
+    before = _snapshot(mock_asterisk_env)
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
+    with pytest.raises(AsteriskServiceError, match="already exists"):
+        replace_phone("ext", "1001")
+    _assert_untouched(mock_asterisk_env, before)
+
+
+def test_replace_phone_template_missing(
+    mock_asterisk_env: dict[str, Path], mocker: MockerFixture
+) -> None:
+    """A copy failure is wrapped as AsteriskServiceError; nothing changes."""
+    mock_asterisk_env["xml_template"].unlink()
+    before = _snapshot(mock_asterisk_env)
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
+    with pytest.raises(AsteriskServiceError, match="replacing MAC address"):
+        replace_phone("ext", "1001")
+    _assert_untouched(mock_asterisk_env, before)
+
+
+def test_replace_phone_partial_xml_is_removed(
+    mock_asterisk_env: dict[str, Path], mocker: MockerFixture
+) -> None:
+    """A half-written new XML (copied, then patching fails) is cleaned up."""
+    before = _snapshot(mock_asterisk_env)
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
+    mocker.patch(
+        f"{PROVISIONING}._patch_cnf_xml", side_effect=OSError("disk full")
+    )
+    with pytest.raises(AsteriskServiceError):
+        replace_phone("ext", "1001")
+    _assert_untouched(mock_asterisk_env, before)
+
+
+def test_replace_phone_config_edit_fails(
+    mock_asterisk_env: dict[str, Path], mocker: MockerFixture
+) -> None:
+    """A failed MAC swap rolls configs back and removes the new XML."""
+    before = _snapshot(mock_asterisk_env)
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
+    mocker.patch(
+        f"{PROVISIONING}._replace_mac_in_file",
+        side_effect=OSError("Write failed"),
+    )
+    with pytest.raises(AsteriskServiceError, match="Write failed"):
+        replace_phone("ext", "1001")
+    _assert_untouched(mock_asterisk_env, before)
+
+
+def test_replace_phone_backup_fails(
+    mock_asterisk_env: dict[str, Path], mocker: MockerFixture
+) -> None:
+    """A backup failure at transaction start still removes the new XML."""
+    before = _snapshot(mock_asterisk_env)
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
+    mocker.patch(
+        f"{PROVISIONING}.ConfigTransaction.__enter__",
+        side_effect=FileTransactionError("Backup failed"),
+    )
+    with pytest.raises(AsteriskServiceError, match="Backup failed"):
+        replace_phone("ext", "1001")
+    _assert_untouched(mock_asterisk_env, before)
+
+
+def test_replace_phone_old_xml_delete_fails(
+    mock_asterisk_env: dict[str, Path],
+    mocker: MockerFixture,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """If the old XML can't be deleted, the replacement still completes."""
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
+    mocker.patch(
+        f"{PROVISIONING}._remove_cnf_xml",
+        side_effect=FileTransactionError("permission denied"),
+    )
+
     replace_phone("ext", "1001")
-    mock_generate.assert_called_once_with(
-        extension="1001", mac_address="AABBCCDDEEFF"
+
+    assert f"[SEP{NEW_MAC}]" in mock_asterisk_env["sip_conf"].read_text(
+        encoding="utf-8"
     )
+    assert _new_xml(mock_asterisk_env).exists()
+    assert "Remove it manually" in caplog.text
+    assert str(mock_asterisk_env["existing_xml"]) in caplog.text
 
 
-@pytest.mark.usefixtures("mock_asterisk_env")
-def test_replace_phone_by_mac_success(mocker: MockerFixture) -> None:
-    mocker.patch(
-        "asterisk_phone_management.services.provisioning.read_mac_addr",
-        return_value="AABBCCDDEEFF",
-    )
-    replace_phone("mac", "112233445566")
+def test_replace_phone_no_old_xml(
+    mock_asterisk_env: dict[str, Path],
+    mocker: MockerFixture,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A missing old XML is only a warning; the replacement completes."""
+    mock_asterisk_env["existing_xml"].unlink()
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
+
+    replace_phone("ext", "1001")
+
+    assert "No old .cnf.xml file found" in caplog.text
+    assert _new_xml(mock_asterisk_env).exists()
 
 
 @pytest.mark.usefixtures("mock_asterisk_env")
 def test_replace_phone_invalid_method() -> None:
+    """An unknown search method is rejected."""
     with pytest.raises(AsteriskCliError, match="No option selected"):
         replace_phone("invalid", "1001")
-
-
-@pytest.mark.usefixtures("mock_asterisk_env")
-def test_replace_phone_duplicate_mac_error(mocker: MockerFixture) -> None:
-    mocker.patch(
-        "asterisk_phone_management.services.provisioning.read_mac_addr",
-        return_value="112233445566",
-    )
-
-    with pytest.raises(
-        AsteriskServiceError, match=r"Phone with MAC address .* already exists"
-    ):
-        replace_phone("ext", "1001")
-
-
-@pytest.mark.usefixtures("mock_asterisk_env")
-def test_replace_phone_no_old_cnf_file_warning(
-    mocker: MockerFixture, mock_asterisk_env: dict[str, Path]
-) -> None:
-    mock_asterisk_env["existing_xml"].unlink()
-    mocker.patch(
-        "asterisk_phone_management.services.provisioning.read_mac_addr",
-        return_value="AABBCCDDEEFF",
-    )
-    mock_log = mocker.patch(
-        "asterisk_phone_management.services.provisioning.log.warning"
-    )
-
-    replace_phone("ext", "1001")
-    mock_log.assert_called()
-
-
-@pytest.mark.usefixtures("mock_asterisk_env")
-def test_replace_phone_os_error_handling(mocker: MockerFixture) -> None:
-    mocker.patch(
-        "asterisk_phone_management.services.provisioning.read_mac_addr",
-        return_value="AABBCCDDEEFF",
-    )
-    mocker.patch(
-        "asterisk_phone_management.services.provisioning._replace_mac_in_file",
-        side_effect=OSError("Write failed"),
-    )
-
-    with pytest.raises(
-        AsteriskServiceError,
-        match="File system error while replacing MAC address",
-    ):
-        replace_phone("ext", "1001")
 
 
 @pytest.mark.usefixtures("mock_asterisk_env")
