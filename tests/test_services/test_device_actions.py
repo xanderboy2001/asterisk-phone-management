@@ -1,6 +1,7 @@
 """Unit tests for device actions, SSH commands, and Asterisk interactions."""
 
 import subprocess
+from unittest.mock import MagicMock, call
 
 import pexpect
 import pytest
@@ -61,57 +62,134 @@ def test_get_ip_address_no_regex_match(mocker: MockerFixture) -> None:
         device_actions._get_ip_address("112233445566")
 
 
-def test_send_reboot_command(mocker: MockerFixture) -> None:
-    mock_child = mocker.MagicMock()
-    device_actions._send_reboot_command(mock_child, "password123")
-    assert mock_child.sendline.call_count == 4
+PROMPTS = ("password:", "login:", "Password:", "DEBUG>")
 
 
-def test_invoke_phone_reboot_success(mocker: MockerFixture) -> None:
-    mocker.patch("pexpect.spawn")
-    mocker.patch(
-        "asterisk_phone_management.services.device_actions._send_reboot_command"
+def _child(expect_results: list[object]) -> MagicMock:
+    """Build a fake ssh session whose ``expect`` calls return in order.
+
+    Args:
+        expect_results: Return values (or exceptions to raise) for each
+            successive ``expect`` call.
+
+    Returns:
+        The fake spawned process.
+    """
+    child = MagicMock()
+    child.expect.side_effect = expect_results
+    return child
+
+
+def test_send_reboot_command_follows_dialogue() -> None:
+    """Every prompt is answered in order, then the session end is awaited."""
+    child = _child([0, 0, 0, 0, 0])
+    device_actions._send_reboot_command(child, "test-pass")
+    assert child.expect.call_args_list == [
+        *(call(prompt) for prompt in PROMPTS),
+        call([pexpect.EOF, pexpect.TIMEOUT]),
+    ]
+    assert child.sendline.call_args_list == [
+        call("test-pass"),
+        call("debug"),
+        call("debug"),
+        call("reboot"),
+    ]
+
+
+@pytest.mark.parametrize("error", [pexpect.TIMEOUT, pexpect.EOF])
+@pytest.mark.parametrize("failing_step", range(len(PROMPTS)))
+def test_send_reboot_command_stops_before_reboot(
+    failing_step: int, error: type[Exception]
+) -> None:
+    """A missing prompt raises and ``reboot`` is never sent."""
+    child = _child([0] * failing_step + [error("no prompt")])
+    with pytest.raises(error):
+        device_actions._send_reboot_command(child, "test-pass")
+    assert call("reboot") not in child.sendline.call_args_list
+
+
+def test_ssh_args_put_options_before_destination() -> None:
+    """Options precede ``--`` and the destination is always last."""
+    args = device_actions._ssh_args("test-user", "192.168.1.50", 5)
+    assert args[-2:] == ["--", "test-user@192.168.1.50"]
+    assert "StrictHostKeyChecking=accept-new" in args
+    assert "ConnectTimeout=5" in args
+    assert "NumberOfPasswordPrompts=1" in args
+
+
+@pytest.mark.parametrize("final_match", [0, 1], ids=["eof", "timeout"])
+def test_invoke_phone_reboot_success(
+    mocker: MockerFixture, final_match: int
+) -> None:
+    """Hanging up or going quiet after ``reboot`` both count as success."""
+    child = _child([0, 0, 0, 0, final_match])
+    spawn = mocker.patch.object(
+        device_actions.pexpect, "spawn", return_value=child
+    )
+    assert device_actions._invoke_phone_reboot(
+        "192.168.1.50", "test-user", "test-pass", timeout=7
+    )
+    spawn.assert_called_once_with(
+        command="ssh",
+        args=device_actions._ssh_args("test-user", "192.168.1.50", 7),
+        encoding="utf-8",
+        timeout=7,
+    )
+    child.close.assert_called_once_with(force=True)
+
+
+@pytest.mark.parametrize("error", [pexpect.TIMEOUT, pexpect.EOF])
+@pytest.mark.parametrize("failing_step", range(len(PROMPTS)))
+def test_invoke_phone_reboot_fails_before_reboot(
+    mocker: MockerFixture,
+    caplog: pytest.LogCaptureFixture,
+    failing_step: int,
+    error: type[Exception],
+) -> None:
+    """Unreachable, wrong password, or unexpected prompt returns False."""
+    child = _child([0] * failing_step + [error("no prompt")])
+    mocker.patch.object(device_actions.pexpect, "spawn", return_value=child)
+    assert not device_actions._invoke_phone_reboot(
+        "192.168.1.50", "test-user", "test-pass"
+    )
+    assert "192.168.1.50" in caplog.text
+    assert "test-pass" not in caplog.text
+    child.close.assert_called_once_with(force=True)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [OSError("ssh not found"), pexpect.ExceptionPexpect("spawn failed")],
+)
+def test_invoke_phone_reboot_spawn_failure(
+    mocker: MockerFixture, error: Exception
+) -> None:
+    """If ssh can't start there is nothing to close and False is returned."""
+    mocker.patch.object(device_actions.pexpect, "spawn", side_effect=error)
+    assert not device_actions._invoke_phone_reboot(
+        "192.168.1.50", "test-user", "test-pass"
     )
 
-    assert (
-        device_actions._invoke_phone_reboot(
-            "192.168.1.50", "test-user", "test-pass"
-        )
-        is True
+
+def test_invoke_phone_reboot_session_error(mocker: MockerFixture) -> None:
+    """Other pexpect errors mid-session return False and still close ssh."""
+    child = _child([pexpect.ExceptionPexpect("read failed")])
+    mocker.patch.object(device_actions.pexpect, "spawn", return_value=child)
+    assert not device_actions._invoke_phone_reboot(
+        "192.168.1.50", "test-user", "test-pass"
     )
+    child.close.assert_called_once_with(force=True)
 
 
-def test_invoke_phone_reboot_success_else_block(mocker: MockerFixture) -> None:
-    mocker.patch("pexpect.spawn")
-    mocker.patch(
-        "asterisk_phone_management.services.device_actions._send_reboot_command",
-        return_value=None,
-    )
-    assert (
-        device_actions._invoke_phone_reboot(
-            "192.168.1.50", "test-user", "test-pass"
-        )
-        is True
-    )
-
-
-def test_invoke_phone_reboot_timeout_or_eof(mocker: MockerFixture) -> None:
-    mocker.patch("pexpect.spawn", side_effect=pexpect.TIMEOUT("Timeout"))
-    assert (
-        device_actions._invoke_phone_reboot(
-            "192.168.1.50", "test-user", "test-pass"
-        )
-        is True
-    )
-
-
-def test_invoke_phone_reboot_exception(mocker: MockerFixture) -> None:
-    mocker.patch("pexpect.spawn", side_effect=OSError("Connection failed"))
-    assert (
-        device_actions._invoke_phone_reboot(
-            "192.168.1.50", "test-user", "test-pass"
-        )
-        is False
+def test_invoke_phone_reboot_ignores_close_errors(
+    mocker: MockerFixture,
+) -> None:
+    """A failure while closing ssh doesn't hide a successful reboot."""
+    child = _child([0, 0, 0, 0, 0])
+    child.close.side_effect = pexpect.ExceptionPexpect("could not terminate")
+    mocker.patch.object(device_actions.pexpect, "spawn", return_value=child)
+    assert device_actions._invoke_phone_reboot(
+        "192.168.1.50", "test-user", "test-pass"
     )
 
 

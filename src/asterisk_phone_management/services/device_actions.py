@@ -1,5 +1,6 @@
 """Services for device interactions, reloading modules, and SSH actions."""
 
+import contextlib
 import re
 import shutil
 import subprocess
@@ -97,26 +98,69 @@ def _get_phone_credentials() -> tuple[str, str]:
     return user, password
 
 
+def _ssh_args(username: str, ip_address: str, timeout: int) -> list[str]:
+    """Build the ``ssh`` arguments used to reach a phone.
+
+    Args:
+        username: The phone's SSH username.
+        ip_address: The phone's IP address.
+        timeout: Seconds to wait for the TCP connection.
+
+    Returns:
+        Arguments for ``ssh``, with every option before the destination.
+    """
+    return [
+        "-t",
+        # Trust a phone's key on first connect; refuse if it later changes.
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+        # Fail fast when a phone is unreachable.
+        "-o",
+        f"ConnectTimeout={timeout}",
+        # A wrong password ends the session instead of re-prompting.
+        "-o",
+        "NumberOfPasswordPrompts=1",
+        # Nothing after this can be read as an ssh option.
+        "--",
+        f"{username}@{ip_address}",
+    ]
+
+
 def _send_reboot_command(child: "pexpect.spawn[str]", password: str) -> None:
     """Send SSH debug authentication and reboot commands to a Cisco IP phone.
 
     Args:
         child: Spawned pexpect process connected to the phone.
         password: Password for phone SSH access.
+
+    Raises:
+        pexpect.TIMEOUT: If a prompt before ``reboot`` doesn't appear in time.
+        pexpect.EOF: If the session ends before ``reboot`` is sent.
     """
-    child.expect("password:")
-    child.sendline(password)
+    # Prompt/response pairs for the Cisco debug login, in order.
+    dialogue: tuple[tuple[str, str], ...] = (
+        ("password:", password),
+        ("login:", "debug"),
+        ("Password:", "debug"),
+        ("DEBUG>", "reboot"),
+    )
+    for prompt, response in dialogue:
+        log.debug("Waiting for %r", prompt)
+        child.expect(prompt)
+        child.sendline(response)
+    # The phone either hangs up or goes quiet while it reboots. Listing
+    # both as patterns means neither is raised as an error here.
+    child.expect([pexpect.EOF, pexpect.TIMEOUT])
 
-    child.expect("login:")
-    child.sendline("debug")
 
-    child.expect("Password:")
-    child.sendline("debug")
+def _close_quietly(child: "pexpect.spawn[str]") -> None:
+    """Terminate an ssh session, ignoring errors during shutdown.
 
-    child.expect("DEBUG>")
-    child.sendline("reboot")
-
-    child.expect(pexpect.EOF)
+    Args:
+        child: The spawned ssh process to close.
+    """
+    with contextlib.suppress(pexpect.ExceptionPexpect, OSError):
+        child.close(force=True)
 
 
 def _invoke_phone_reboot(
@@ -124,10 +168,9 @@ def _invoke_phone_reboot(
 ) -> bool:
     """Reboot a Cisco IP phone by automating system SSH via pexpect.
 
-    Connects to the phone using the system's native SSH binary, handles the
-    two-stage Cisco debug prompt sequence (Username: debug / Password: debug),
-    and issues the reboot command.
-
+    Connects with the system's ``ssh`` binary, completes the two-stage Cisco
+    debug login, and sends ``reboot``. The ssh process is always closed
+    before returning.
 
     Args:
         ip_address: The target phone's IP address.
@@ -136,29 +179,39 @@ def _invoke_phone_reboot(
         timeout: Maximum time in seconds to wait for each prompt.
             Defaults to 5.
 
-
     Returns:
-        True if the reboot command was successfully sent and acknowledged,
-        False if authentication failed, a prompt timed out,
-            or process spawn failed.
+        True if ``reboot`` was sent and the session then ended. False if
+        ssh couldn't start, or the session ended or timed out before
+        ``reboot`` was sent (unreachable, wrong password, or an
+        unexpected prompt).
     """
     log.info("Connecting to %s via SSH...", ip_address)
     try:
         child: pexpect.spawn[str] = pexpect.spawn(
             command="ssh",
-            args=["-t", f"{username}@{ip_address}"],
+            args=_ssh_args(username, ip_address, timeout),
             encoding="utf-8",
             timeout=timeout,
         )
-        _send_reboot_command(child, password)
-    except (pexpect.TIMEOUT, pexpect.EOF):
-        log.info(
-            "Reboot signal sent to %s (connection closed by host).", ip_address
-        )
-        return True
     except (pexpect.ExceptionPexpect, OSError) as e:
-        log.error("Failed to reboot phone via SSH: %s", e)
+        log.error("Could not start an SSH session to %s: %s", ip_address, e)
         return False
+    try:
+        _send_reboot_command(child, password)
+    except (pexpect.TIMEOUT, pexpect.EOF) as e:
+        log.error(
+            "SSH session with %s ended before the reboot command was sent "
+            "(%s).",
+            ip_address,
+            type(e).__name__,
+        )
+        log.debug("pexpect details: %s", e)
+        return False
+    except (pexpect.ExceptionPexpect, OSError) as e:
+        log.error("SSH session with %s failed: %s", ip_address, e)
+        return False
+    finally:
+        _close_quietly(child)
 
     log.info("Successfully sent reboot command to %s", ip_address)
     return True
@@ -258,7 +311,7 @@ def get_active_calls() -> list[ActiveCall]:
 
     Returns:
         List of ActiveCall objects representing current calls. Returns
-            an empty list if Asterisk cannot be reached or reports no calls.
+        an empty list if Asterisk cannot be reached or reports no calls.
     """
     try:
         result = subprocess.run(
