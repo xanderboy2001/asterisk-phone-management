@@ -512,7 +512,9 @@ def replace_phone(search_method: str, search_key: str) -> None:
     # 3. Reject a MAC that is unchanged or already in use.
     if new_mac_address.upper() == mac_address.upper():
         msg = "New MAC address matches the current one. Nothing to replace."
-        log.error("New MAC address matches the current one; replacement aborted.")
+        log.error(
+            "New MAC address matches the current one; replacement aborted."
+        )
         raise AsteriskCliError(msg)
     if search_for_mac_address(new_mac_address):
         msg = "Phone with the provided MAC address already exists."
@@ -556,7 +558,8 @@ def replace_phone(search_method: str, search_key: str) -> None:
         except FileTransactionError as err:
             log.warning(
                 "Replacement succeeded, but the previous phone configuration "
-                "file could not be deleted (%s). Remove it manually.",
+                "file %s could not be deleted (%s). Remove it manually.",
+                old_cnf_file,
                 err,
             )
 
