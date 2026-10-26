@@ -555,10 +555,9 @@ def replace_phone(search_method: str, search_key: str) -> None:
             log.info("Deleted old .cnf.xml file for the previous phone.")
         except FileTransactionError as err:
             log.warning(
-                "Replacement succeeded, but the old file %s could not be "
-                "deleted (%s). Remove it manually.",
-                old_cnf_file,
+                "Replacement succeeded, but the previous phone configuration "
+                "file could not be deleted (%s). Remove it manually.",
                 err,
             )
 
-    log.info("Extension %s was moved to the new phone.", extension)
+    log.info("Phone replacement completed successfully.")
