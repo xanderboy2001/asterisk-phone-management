@@ -558,7 +558,8 @@ def replace_phone(search_method: str, search_key: str) -> None:
         except FileTransactionError as err:
             log.warning(
                 "Replacement succeeded, but the previous phone configuration "
-                "file could not be deleted (%s). Remove it manually.",
+                "file %s could not be deleted (%s). Remove it manually.",
+                old_cnf_file,
                 err,
             )
 
