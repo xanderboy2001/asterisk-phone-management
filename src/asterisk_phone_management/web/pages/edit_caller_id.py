@@ -1,5 +1,7 @@
 """Edit caller ID page component."""
 
+from typing import Literal
+
 from nicegui import ui
 
 from asterisk_phone_management.core.constants import CALLERID_DIRECTIVE
@@ -44,8 +46,8 @@ async def on_submit(
         new_caller_id: The new caller ID value.
         selected_matches: The ConfigMatch entries selected for update.
     """
-    extension = (extension or "").strip()
-    new_caller_id = (new_caller_id or "").strip()
+    extension: str = (extension or "").strip()
+    new_caller_id: str = (new_caller_id or "").strip()
     if not extension:
         ui.notify("No extension!", type="negative", textColor="dark")
         return
@@ -68,13 +70,13 @@ async def on_submit(
         ui.notify("No entries selected!", type="warning", textColor="dark")
         return
 
-    count = len(selected_matches)
-    plural = "s" if count != 1 else ""
+    count: int = len(selected_matches)
+    entries: Literal["entry", "entries"] = "entry" if count == 1 else "entries"
 
     with ui.dialog() as dialog, ui.card():
         ui.label(
             f"Are you sure you want to set the caller ID of {count} "
-            f"entry{plural} for extension {extension} "
+            f"{entries} for extension {extension} "
             f"to '{new_caller_id}'?"
         )
         with ui.row().classes("w-full justify-end"):
@@ -95,7 +97,7 @@ async def on_submit(
         try:
             edit_caller_id(selected_matches, new_caller_id)
             ui.notify(
-                f"Successfully set caller ID of {count} entry{plural} "
+                f"Successfully set caller ID of {count} {entries} "
                 f"for extension {extension} to '{new_caller_id}'.",
                 type="positive",
                 textColor="dark",
@@ -112,80 +114,85 @@ async def on_submit(
 
 def register_page() -> None:
     """Register the edit caller ID page route with NiceGUI."""
-    current_matches: list[ConfigMatch] = []
-    selected_flags: list[bool] = []
-
-    @ui.refreshable
-    def results_view() -> None:
-        """Render the current matches as selectable cards."""
-        if not current_matches:
-            ui.label("No matches found.").classes(ERROR_TEXT_CLASSES)
-            return
-
-        for idx, match in enumerate(current_matches):
-
-            def _toggle(checked: bool, i: int = idx) -> None:  # ruff: ignore[boolean-type-hint-positional-argument]
-                selected_flags[i] = checked
-
-            with (
-                ui.card().classes(RESULT_CARD_CLASSES),
-                ui.row().classes("items-center gap-2 w-full"),
-            ):
-                ui.checkbox(
-                    value=True,
-                    on_change=lambda e, i=idx: _toggle(bool(e.value), i),
-                )
-                with ui.column().classes("flex-grow"):
-                    ui.label(
-                        f"{match.file_path.name}:{match.line_number}"
-                    ).classes(f"font-bold text-[{DRACULA.cyan}]")
-                    ui.label(match.matched_text).classes(
-                        f"text-sm text-[{DRACULA.foreground}]"
-                        " font-mono overflow-x-auto"
-                        " whitespace-nowrap block max-w-full pb1"
-                    )
-
-    def _selected_matches() -> list[ConfigMatch]:
-        return [
-            m
-            for m, s in zip(current_matches, selected_flags, strict=False)
-            if s
-        ]
 
     @ui.page("/edit-caller-id")
     def edit_caller_id_page() -> None:
-        """Render the edit caller ID page."""
-        nonlocal current_matches, selected_flags
+        """Render the edit caller ID page.
+
+        All search state lives inside this function, so every browser
+        visit gets its own results and selections.
+        """
+        current_matches: list[ConfigMatch] = []
+        selected_flags: list[bool] = []
+        # The extension the current results belong to. Updates use this,
+        # not the input box, so editing the box after a search can't
+        # point the update at a different extension.
+        searched: dict[str, str] = {"extension": ""}
+
+        def _set_selected(index: int, *, checked: bool) -> None:
+            selected_flags[index] = checked
+
+        def _selected_matches() -> list[ConfigMatch]:
+            return [
+                match
+                for match, selected in zip(
+                    current_matches, selected_flags, strict=True
+                )
+                if selected
+            ]
+
+        @ui.refreshable
+        def results_view() -> None:
+            """Render the current matches as selectable cards."""
+            if not current_matches:
+                ui.label("No matches found.").classes(ERROR_TEXT_CLASSES)
+                return
+
+            for idx, match in enumerate(current_matches):
+                with (
+                    ui.card().classes(RESULT_CARD_CLASSES),
+                    ui.row().classes("items-center gap-2 w-full"),
+                ):
+                    ui.checkbox(
+                        value=True,
+                        on_change=lambda e, i=idx: _set_selected(
+                            index=i, checked=bool(e.value)
+                        ),
+                    ).mark(f"select-{idx}")
+                    with ui.column().classes("flex-grow"):
+                        ui.label(
+                            f"{match.file_path.name}:{match.line_number}"
+                        ).classes(f"font-bold text-[{DRACULA.cyan}]")
+                        ui.label(match.matched_text).classes(
+                            f"text-sm text-[{DRACULA.foreground}]"
+                            " font-mono overflow-x-auto"
+                            " whitespace-nowrap block max-w-full pb-1"
+                        )
+
+        async def _submit(new_caller_id: str | None) -> None:
+            await on_submit(
+                searched["extension"], new_caller_id, _selected_matches()
+            )
 
         def _show_update_area() -> None:
             update_area.clear()
             if not current_matches:
                 return
-            with update_area:  # ruff: ignore[multiple-with-statements]
-                with ui.row().classes(
+
+            with (
+                update_area,
+                ui.row().classes(
                     "w-full items-center justify-center gap-2 mt-4"
-                ):
-                    cid_input = caller_id_input()
-                    ui.button(
-                        text="Update Selected",
-                        on_click=lambda: on_submit(
-                            ext_input.value,
-                            cid_input.value,
-                            _selected_matches(),
-                        ),
-                    ).props(BUTTON_PROPS).classes(BUTTON_CLASSES)
-                    cid_input.on(
-                        "keydown.enter",
-                        lambda: on_submit(
-                            ext_input.value,
-                            cid_input.value,
-                            _selected_matches(),
-                        ),
-                    )
+                ),
+            ):
+                cid_input = caller_id_input()
+                ui.button(
+                    text="Update Selected",
+                    on_click=lambda: _submit(cid_input.value),
+                ).props(BUTTON_PROPS).classes(BUTTON_CLASSES)
+                cid_input.on("keydown.enter", lambda: _submit(cid_input.value))
 
         def _search(ext: str | None) -> None:
-            nonlocal current_matches, selected_flags
-
             ext = (ext or "").strip()
             if not ext:
                 ui.notify(
@@ -202,6 +209,7 @@ def register_page() -> None:
                 if match.matched_text.startswith(CALLERID_DIRECTIVE)
             ]
             selected_flags[:] = [True] * len(current_matches)
+            searched["extension"] = ext
             results_view.refresh()
             _show_update_area()
 
@@ -215,7 +223,9 @@ def register_page() -> None:
                 ext_input.on("keydown.enter", lambda: _search(ext_input.value))
                 ui.button(
                     text="Search", on_click=lambda: _search(ext_input.value)
-                ).props(BUTTON_PROPS).classes(BUTTON_CLASSES)
+                ).props(BUTTON_PROPS).classes(BUTTON_CLASSES).mark(
+                    "search-button"
+                )
 
             with ui.column().classes(RESULTS_CONTAINER_CLASSES):
                 results_view()

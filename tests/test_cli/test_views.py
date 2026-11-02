@@ -1,8 +1,10 @@
 """Unit tests for Rich table generation and view rendering functions."""
 
+import pytest
 from pytest_mock import MockerFixture
 from rich.table import Table
 
+from asterisk_phone_management.cli import views
 from asterisk_phone_management.cli.views import (
     _format_duration,
     _generate_call_table,
@@ -60,11 +62,19 @@ def test_print_phone_table_renders(
     print_phone_table(sample_phone, sample_voicemail)
 
 
-def test_view_active_calls_keyboard_interrupt(mocker: MockerFixture) -> None:
-    mocker.patch(
-        "asterisk_phone_management.cli.views.get_active_calls", return_value=[]
+def test_view_active_calls_keyboard_interrupt(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One refresh is drawn, then Ctrl+C on the next poll exits cleanly."""
+    monkeypatch.setattr(views, "_REFRESH_SECONDS", 0)
+    mock_calls = mocker.patch(
+        "asterisk_phone_management.cli.views.get_active_calls",
+        side_effect=[[], KeyboardInterrupt],
     )
-    mocker.patch("asterisk_phone_management.cli.views.Live")
-    mocker.patch("time.sleep", side_effect=KeyboardInterrupt)
+    mock_live = mocker.patch("asterisk_phone_management.cli.views.Live")
 
     view_active_calls()
+
+    assert mock_calls.call_count == 2
+    live = mock_live.return_value.__enter__.return_value
+    live.update.assert_called_once()

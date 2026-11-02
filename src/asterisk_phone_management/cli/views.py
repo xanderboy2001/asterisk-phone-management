@@ -15,6 +15,9 @@ from asterisk_phone_management.schemas.models import (
 )
 from asterisk_phone_management.services.device_actions import get_active_calls
 
+# Seconds between refreshes of the active calls dashboard.
+_REFRESH_SECONDS: float = 1.0
+
 
 def print_phone_table(
     phone: Phone, voicemail: Voicemail | None = None
@@ -136,7 +139,7 @@ def _render_call_panel() -> None:
             )
 
             live.update(panel)
-            time.sleep(1)
+            time.sleep(_REFRESH_SECONDS)
 
 
 def view_active_calls() -> None:
