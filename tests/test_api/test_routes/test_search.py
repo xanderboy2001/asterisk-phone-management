@@ -90,6 +90,21 @@ def test_search_mac_addr_success(
     assert data[0]["matched_text"] == "[SEPAABBCCDDEEFF](phone)"
 
 
+@patch("asterisk_phone_management.api.routes.search.search_for_mac_address")
+def test_search_mac_addr_normalizes_input(mock_search: MagicMock) -> None:
+    """A lowercase, colon-separated MAC is searched in normalized form."""
+    mock_search.return_value = [
+        ConfigMatch(
+            file_path=Path("/etc/asterisk/sip.conf"),
+            line_number=3,
+            matched_text="[SEPAABBCCDDEEFF](phone)",
+        )
+    ]
+    response = client.get("/api/v1/search/mac_address/aa:bb:cc:dd:ee:ff")
+    assert response.status_code == 200
+    mock_search.assert_called_once_with("AABBCCDDEEFF")
+
+
 @patch("asterisk_phone_management.api.routes.search.validate_mac_addr")
 @patch("asterisk_phone_management.api.routes.search.search_for_mac_address")
 def test_search_mac_addr_validation_error(

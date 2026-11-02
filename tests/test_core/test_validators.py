@@ -1,10 +1,15 @@
 """Unit tests for string input validators."""
 
+import string
+
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.core.validators import (
     ensure_valid,
+    normalize_mac_addr,
     validate_caller_id,
     validate_email,
     validate_extension,
@@ -36,6 +41,48 @@ def test_validate_extension(extension: str, expected: bool | str) -> None:
     """
     result = validate_extension(extension)
     assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("AABBCCDDEEFF", "AABBCCDDEEFF"),
+        ("aabbccddeeff", "AABBCCDDEEFF"),
+        ("aa:bb:cc:dd:ee:ff", "AABBCCDDEEFF"),
+        ("AA-BB-CC-DD-EE-FF", "AABBCCDDEEFF"),
+        ("aabb.ccdd.eeff", "AABBCCDDEEFF"),
+        ("  aa:bb:cc:dd:ee:ff\n", "AABBCCDDEEFF"),
+    ],
+)
+def test_normalize_mac_addr(raw: str, expected: str) -> None:
+    """Separators, case, and surrounding whitespace are normalized."""
+    assert normalize_mac_addr(raw) == expected
+
+
+_HEX_PAIRS = st.lists(
+    st.text(alphabet=string.hexdigits, min_size=2, max_size=2),
+    min_size=6,
+    max_size=6,
+)
+
+
+@given(pairs=_HEX_PAIRS, separator=st.sampled_from(["", ":", "-", "."]))
+def test_normalize_mac_addr_valid_macs(
+    pairs: list[str], separator: str
+) -> None:
+    """Every valid MAC normalizes to 12 uppercase hex characters."""
+    raw = separator.join(pairs)
+    normalized = normalize_mac_addr(raw)
+    assert validate_mac_addr(raw) is True
+    assert normalized == "".join(pairs).upper()
+    assert len(normalized) == 12
+
+
+@given(raw=st.text())
+def test_normalize_mac_addr_is_idempotent(raw: str) -> None:
+    """Normalizing twice gives the same result as normalizing once."""
+    once = normalize_mac_addr(raw)
+    assert normalize_mac_addr(once) == once
 
 
 @pytest.mark.parametrize(

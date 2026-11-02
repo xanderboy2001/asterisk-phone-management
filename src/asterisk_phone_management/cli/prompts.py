@@ -1,6 +1,5 @@
 """Interactive CLI prompts for user interaction."""
 
-import re
 from typing import TypeVar
 
 import questionary
@@ -17,6 +16,7 @@ from asterisk_phone_management.core.constants import (
 )
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.core.validators import (
+    normalize_mac_addr,
     validate_caller_id,
     validate_email,
     validate_extension,
@@ -80,7 +80,7 @@ def read_mac_addr() -> str:
 
     response: str = ask(question=question, expected=str)
 
-    return re.sub(r"[:\-.]", "", response).upper()
+    return normalize_mac_addr(response)
 
 
 def read_caller_id(extension: str) -> str:

@@ -11,6 +11,10 @@ from asterisk_phone_management.core.constants import (
     SearchMethod,
 )
 from asterisk_phone_management.core.theme import DRACULA
+from asterisk_phone_management.core.validators import (
+    normalize_mac_addr,
+    validate_mac_addr,
+)
 from asterisk_phone_management.schemas.models import ConfigMatch
 from asterisk_phone_management.services.search import (
     search_for_caller_id,
@@ -79,8 +83,16 @@ def register_page() -> None:
                 if _method == SEARCH_BY_EXTENSION:
                     response_data = search_for_extension(extension=search_val)
                 elif _method == SEARCH_BY_MAC:
+                    validation_result = validate_mac_addr(search_val)
+                    if validation_result is not True:
+                        ui.notify(
+                            message=str(validation_result),
+                            type="negative",
+                            textColor="dark",
+                        )
+                        return
                     response_data = search_for_mac_address(
-                        mac_address=search_val
+                        mac_address=normalize_mac_addr(search_val)
                     )
                 elif _method == SEARCH_BY_CALLER_ID:
                     response_data = search_for_caller_id(caller_id=search_val)

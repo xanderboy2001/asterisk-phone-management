@@ -7,12 +7,14 @@ from pathlib import Path
 from asterisk_phone_management.core.constants import (
     CALLERID_DIRECTIVE,
     EXTENSIONS_CONF,
+    SEP_PREFIX,
     SIP_CONF,
     TFTPBOOT,
     VOICEMAIL_CONF,
     VOICEMAIL_CONF_NAME,
     log,
 )
+from asterisk_phone_management.core.validators import normalize_mac_addr
 from asterisk_phone_management.schemas.models import ConfigMatch
 
 # Matches the mailbox number and the PIN field of a voicemail.conf entry.
@@ -86,7 +88,7 @@ def _is_sip_mac_match(line_text: str, mac_address: str) -> bool:
     Returns:
         True if matching, False otherwise.
     """
-    return f"[SEP{mac_address}]" in line_text
+    return f"[SEP{mac_address}]".upper() in line_text.upper()
 
 
 def _is_extensions_mac_match(line_text: str, mac_address: str) -> bool:
@@ -99,7 +101,7 @@ def _is_extensions_mac_match(line_text: str, mac_address: str) -> bool:
     Returns:
         True if matching, False otherwise.
     """
-    return f"SIP/SEP{mac_address}" in line_text
+    return f"SIP/SEP{mac_address}".upper() in line_text.upper()
 
 
 def _is_caller_id_match(line_text: str, caller_id: str) -> bool:
@@ -229,12 +231,12 @@ def scan_xml_files_for_mac_address(mac_address: str) -> Iterable[ConfigMatch]:
         ConfigMatch: Information about the match.
     """
     xml_files: Iterable[Path] = TFTPBOOT.glob(pattern="*.cnf.xml")
-    needle: str = f"<name>{mac_address}</name>"
+    needle: str = f"<name>{SEP_PREFIX}{mac_address}</name>".upper()
 
     for file in xml_files:
         with file.open(mode="r", encoding="utf-8") as current_file:
             for line_number, line_text in enumerate(current_file, start=1):
-                if needle in line_text.strip():
+                if needle in line_text.strip().upper():
                     yield ConfigMatch(
                         file_path=file,
                         line_number=line_number,
@@ -286,11 +288,12 @@ def search_for_mac_address(mac_address: str) -> list[ConfigMatch]:
     """Search all config and XML files for a given MAC address.
 
     Args:
-        mac_address: MAC address to search for.
+        mac_address: MAC address to search for. Can be in any accepted format.
 
     Returns:
         List of ConfigMatch dataclasses representing matches found.
     """
+    mac_address = normalize_mac_addr(mac_address)
     scan_tasks: list[tuple[Path, MatchRule]] = [
         (SIP_CONF, _is_sip_mac_match),
         (EXTENSIONS_CONF, _is_extensions_mac_match),

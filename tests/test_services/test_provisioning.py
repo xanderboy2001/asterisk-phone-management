@@ -191,6 +191,33 @@ def test_register_phone_success(mocker: MockerFixture) -> None:
 
 
 @pytest.mark.usefixtures("mock_asterisk_env")
+def test_register_phone_normalizes_mac(mocker: MockerFixture) -> None:
+    """A lowercase, colon-separated MAC is provisioned in normalized form."""
+    mocker.patch("questionary.confirm").return_value.ask.return_value = True
+    mock_provision = mocker.patch(
+        "asterisk_phone_management.services.provisioning._provision_phone"
+    )
+    register_phone(
+        Phone(extension="9999", mac_address="aa:bb:cc:dd:ee:ff", caller_id="")
+    )
+    mock_provision.assert_called_once_with(
+        Phone(extension="9999", mac_address="AABBCCDDEEFF", caller_id=""),
+        None,
+    )
+
+
+@pytest.mark.usefixtures("mock_asterisk_env")
+def test_remove_phone_by_separated_mac(mocker: MockerFixture) -> None:
+    """Removing by a separated, lowercase MAC finds the phone."""
+    mocker.patch("questionary.confirm").return_value.ask.return_value = True
+    mock_deprov = mocker.patch(
+        "asterisk_phone_management.services.provisioning._deprovision_phone"
+    )
+    remove_phone("mac", "11:22:33:44:55:66")
+    mock_deprov.assert_called_once_with("1001", "112233445566")
+
+
+@pytest.mark.usefixtures("mock_asterisk_env")
 def test_register_phone_existing_extension(mocker: MockerFixture) -> None:
     existing_phone = Phone(
         extension="1001", mac_address="AABBCCDDEEFF", caller_id=""

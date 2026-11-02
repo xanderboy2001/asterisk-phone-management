@@ -1,5 +1,6 @@
 """Provisioning, deprovisioning, and MAC-replacement services for phones."""
 
+import dataclasses
 import re
 from collections.abc import Iterable
 from pathlib import Path
@@ -29,6 +30,7 @@ from asterisk_phone_management.core.exceptions import (
 from asterisk_phone_management.core.transactions import ConfigTransaction
 from asterisk_phone_management.core.validators import (
     ensure_valid,
+    normalize_mac_addr,
     validate_caller_id,
     validate_email,
     validate_extension,
@@ -389,6 +391,10 @@ def register_phone(phone: Phone, voicemail: Voicemail | None = None) -> None:
         KeyboardInterrupt: If the user cancels the confirmation prompt.
     """
     _validate_registration(phone, voicemail)
+    # Store the MAC in one form so later searches and edits find it.
+    phone: Phone = dataclasses.replace(
+        phone, mac_address=normalize_mac_addr(phone.mac_address)
+    )
     if search_for_extension(phone.extension):
         log.error("Extension '%s' is already in use!", phone.extension)
         return
@@ -435,7 +441,7 @@ def remove_phone(search_method: str, search_key: str) -> None:
         mac_address = get_mac_from_ext(matches=found)
         caller_id = get_caller_id_from_ext(matches=found)
     elif search_method == SEARCH_BY_MAC:
-        mac_address = search_key
+        mac_address = normalize_mac_addr(search_key)
         found = search_for_mac_address(mac_address)
         if not found:
             msg = f"Could not find phone with MAC address '{mac_address}'."
@@ -498,7 +504,7 @@ def replace_phone(search_method: str, search_key: str) -> None:
         extension_matches: list[ConfigMatch] = search_for_extension(extension)
         mac_address = get_mac_from_ext(extension_matches)
     elif search_method == SEARCH_BY_MAC:
-        mac_address = search_key
+        mac_address = normalize_mac_addr(search_key)
         mac_matches: list[ConfigMatch] = search_for_mac_address(mac_address)
         extension = get_ext_from_mac(mac_matches)
     else:

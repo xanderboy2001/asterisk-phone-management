@@ -16,6 +16,7 @@ _MIN_DOMAIN_LABELS: int = 2
 
 _LABEL_REGEX = re.compile(r"^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$")
 _TLD_REGEX = re.compile(r"^[a-zA-Z]{2,}$")
+_MAC_SEPARATORS = re.compile(r"[:\-.]")
 
 # characters that would end the current config line or start a comment.
 _LINE_BREAKING_CHARS: frozenset[str] = frozenset("\r\n\x00;")
@@ -87,6 +88,22 @@ def ensure_valid(result: bool | str) -> None:  # ruff: ignore[boolean-type-hint-
         raise AsteriskCliError(str(result))
 
 
+def normalize_mac_addr(mac_address: str) -> str:
+    """Convert a MAC address to the stored form: 12 uppercase characters.
+
+    Removes surrounding whitespace and ``:``, ``-``, and ``.`` separators,
+    then uppercases. This only reformats; use ``validate_mac_addr`` to
+    check that the result is a real MAC address.
+
+    Args:
+        mac_address: The MAC address as typed, e.g. ``aa:bb:cc:dd:ee:ff``.
+
+    Returns:
+        The normalized MAC address, e.g. ``AABBCCDDEEFF``.
+    """
+    return _MAC_SEPARATORS.sub("", mac_address.strip()).upper()
+
+
 def validate_mac_addr(mac_address: str) -> bool | str:
     """Check whether a given MAC address is valid.
 
@@ -96,7 +113,7 @@ def validate_mac_addr(mac_address: str) -> bool | str:
     Returns:
         True if the MAC address is valid, otherwise an error message.
     """
-    raw_mac: str = re.sub(r"[:\-.]", "", mac_address).upper()
+    raw_mac: str = normalize_mac_addr(mac_address)
     if len(raw_mac) != MAC_ADDRESS_LENGTH:
         return "MAC address must be 12 digits."
 

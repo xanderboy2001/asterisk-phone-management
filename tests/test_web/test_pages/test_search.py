@@ -1,6 +1,7 @@
 """Tests for the search page."""
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from nicegui import ui
@@ -62,6 +63,36 @@ async def test_search_extension_with_matches(
     user.find(ui.button).click()
     await user.should_see("sip.conf:5")
     await user.should_see("exten => 1234,1,Dial(SIP/1234)")
+
+
+async def test_search_mac_address_is_normalized(
+    user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A lowercase, colon-separated MAC is searched in normalized form."""
+    mock_search = MagicMock(return_value=[])
+    monkeypatch.setattr(search_page, "search_for_mac_address", mock_search)
+    await user.open("/search")
+    user.find("Search by MAC Address").click()
+    await user.should_see("Enter a MAC Address")
+    user.find("Enter a MAC Address").type("aa:bb:cc:dd:ee:ff")
+    user.find(ui.button).click()
+    await user.should_see("No matches found.")
+    mock_search.assert_called_once_with(mac_address="AABBCCDDEEFF")
+
+
+async def test_search_invalid_mac_address_is_rejected(
+    user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An invalid MAC shows the validation error and isn't searched."""
+    mock_search = MagicMock(return_value=[])
+    monkeypatch.setattr(search_page, "search_for_mac_address", mock_search)
+    await user.open("/search")
+    user.find("Search by MAC Address").click()
+    await user.should_see("Enter a MAC Address")
+    user.find("Enter a MAC Address").type("not-a-mac")
+    user.find(ui.button).click()
+    await user.should_see("MAC address must be 12 digits.")
+    mock_search.assert_not_called()
 
 
 async def test_search_switch_to_mac_address(
