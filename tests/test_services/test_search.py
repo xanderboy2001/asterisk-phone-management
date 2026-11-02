@@ -232,3 +232,54 @@ def test_search_for_caller_id_found(
 def test_search_for_caller_id_not_found() -> None:
     results = search_for_caller_id("nonexistentUser")
     assert results == []
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("exten => 1001,1,Dial(SIP/SEP1)", True),
+        ("exten=>1001,1,Dial(SIP/SEP1)", True),
+        ("  exten  =>  1001 ,n,Voicemail(1001,u)", True),
+        ("exten => 10012,1,Dial(SIP/SEP1)", False),
+        ("exten => 21001,1,Dial(SIP/SEP1)", False),
+        ("; exten => 1001,1,Dial(SIP/SEP1)", False),
+    ],
+)
+def test_extensions_ext_match_is_exact(line: str, expected: bool) -> None:
+    """Only the exact extension matches, with any spacing (F-13)."""
+    assert _is_extensions_ext_match(line, "1001") is expected
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("1001 = 1234, John", True),
+        ("1001 => 1234, John", True),
+        ("  1001=1234, John", True),
+        ("10012 = 1234, Jane", False),
+        (";1001 = 1234, John", False),
+        ("[1001]", False),
+    ],
+)
+def test_voicemail_ext_match_is_exact(line: str, expected: bool) -> None:
+    """Only the exact mailbox matches; prefixes and comments don't (F-13)."""
+    assert _is_voicemail_ext_match(line, "1001") is expected
+
+
+def test_search_for_extension_ignores_longer_extensions(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """Searching 1001 doesn't return lines that belong to 10012."""
+    ext_conf = mock_asterisk_env["ext_conf"]
+    vm_conf = mock_asterisk_env["vm_conf"]
+    ext_conf.write_text(
+        ext_conf.read_text(encoding="utf-8")
+        + "exten => 10012,1,Dial(SIP/SEPAABBCCDDEEFF,14,t)\n",
+        encoding="utf-8",
+    )
+    vm_conf.write_text(
+        vm_conf.read_text(encoding="utf-8") + "10012 = 9999, Jane, j@x.com\n",
+        encoding="utf-8",
+    )
+    results = search_for_extension("1001")
+    assert not any("10012" in m.matched_text for m in results)

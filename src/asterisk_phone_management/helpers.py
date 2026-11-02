@@ -153,7 +153,7 @@ def get_ext_from_mac(matches: list[ConfigMatch]) -> str:
                 return extension_text
         elif match.file_path.name == EXTENSIONS_CONF_NAME:
             ext_match = re.search(
-                pattern=r"exten\s*=>\s*(\d{4})", string=match.matched_text
+                pattern=r"exten\s*=>\s*(\d{4})\s*,", string=match.matched_text
             )
             if ext_match:
                 return str(ext_match.group(1))

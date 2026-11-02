@@ -20,6 +20,38 @@ from asterisk_phone_management.schemas.models import ConfigMatch
 # Matches the mailbox number and the PIN field of a voicemail.conf entry.
 _VM_PIN_RE = re.compile(r"^(\s*\d+\s*=>?\s*)[^,]*")
 
+
+def extension_line_re(extension: str) -> re.Pattern[str]:
+    """Build a pattern for dialplan lines that belong to one extension.
+
+    Matches ``exten => 1001,`` with any spacing around ``=>`` and before the
+    comma, so ``1001`` never matches ``10012``.
+
+    Args:
+        extension: The extension number.
+
+    Returns:
+        A compiled pattern to use with ``search``.
+    """
+    return re.compile(rf"^\s*exten\s*=>\s*{re.escape(extension)}\s*,")
+
+
+def voicemail_line_re(extension: str) -> re.Pattern[str]:
+    """Build a pattern for the voicemail.conf mailbox line of one extension.
+
+    Matches ``1001 = ...`` or ``1001 => ...`` with any spacing, so ``1001``
+    never matches ``10012``. Commented-out lines (``;1001 => ...``) don't
+    match.
+
+    Args:
+        extension: The mailbox number.
+
+    Returns:
+        A compiled pattern to use with ``search``.
+    """
+    return re.compile(rf"^\s*{re.escape(extension)}\s*=")
+
+
 """Type alias for callable rules to match lines during config file scanning."""
 MatchRule = Callable[[str, str], bool]
 
@@ -62,7 +94,7 @@ def _is_extensions_ext_match(line_text: str, extension: str) -> bool:
     Returns:
         True if matching, False otherwise.
     """
-    return line_text.strip().startswith(f"exten => {extension}")
+    return extension_line_re(extension).search(line_text) is not None
 
 
 def _is_voicemail_ext_match(line_text: str, extension: str) -> bool:
@@ -75,7 +107,7 @@ def _is_voicemail_ext_match(line_text: str, extension: str) -> bool:
     Returns:
         True if matching, False otherwise.
     """
-    return line_text.strip().startswith(extension)
+    return voicemail_line_re(extension).search(line_text) is not None
 
 
 def _is_sip_mac_match(line_text: str, mac_address: str) -> bool:

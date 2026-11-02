@@ -577,3 +577,31 @@ def test_register_phone_rejects_invalid_fields(
     with pytest.raises(AsteriskCliError):
         register_phone(phone, voicemail)
     mock_provision.assert_not_called()
+
+
+def test_deprovision_phone_keeps_longer_extensions(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """Removing 1001 never deletes lines that belong to 10012 (F-13)."""
+    ext_conf = mock_asterisk_env["ext_conf"]
+    vm_conf = mock_asterisk_env["vm_conf"]
+    ext_conf.write_text(
+        ext_conf.read_text(encoding="utf-8")
+        + "exten=>1001,2,Hangup()\n"
+        + "exten => 10012,1,Dial(SIP/SEPAABBCCDDEEFF,14,t)\n",
+        encoding="utf-8",
+    )
+    vm_conf.write_text(
+        vm_conf.read_text(encoding="utf-8") + "10012 = 9999, Jane, j@x.com\n",
+        encoding="utf-8",
+    )
+
+    _deprovision_phone("1001", "112233445566")
+
+    ext_text = ext_conf.read_text(encoding="utf-8")
+    vm_text = vm_conf.read_text(encoding="utf-8")
+    assert "exten => 10012,1" in ext_text
+    assert "exten=>1001," not in ext_text
+    assert "exten => 1001," not in ext_text
+    assert "10012 = 9999" in vm_text
+    assert "1001 = 1234" not in vm_text
