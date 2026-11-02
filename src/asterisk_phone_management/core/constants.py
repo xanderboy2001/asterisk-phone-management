@@ -39,6 +39,15 @@ TFTPBOOT: Path = Path(
     os.environ.get("ASTERISK_CLI_TFTPBOOT", "/var/lib/tftpboot")
 )
 
+# Held while any config file is being changed, so the CLI and web UI
+# can't edit at the same time. Overridable via ASTERISK_CLI_LOCK_FILE.
+LOCK_FILE: Path = Path(
+    os.environ.get(
+        "ASTERISK_CLI_LOCK_FILE",
+        str(ETC_ASTERISK / ".asterisk-phone-management.lock"),
+    )
+)
+
 # Required files + paths
 
 SIP_CONF: Path = ETC_ASTERISK / "sip.conf"

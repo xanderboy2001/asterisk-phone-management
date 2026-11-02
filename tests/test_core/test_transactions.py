@@ -1,10 +1,15 @@
 """Unit tests for transactional config file backups and rollback context manager."""
 
+import fcntl
+import os
+import threading
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
 from pytest_mock import MockerFixture
 
+from asterisk_phone_management.core import transactions
 from asterisk_phone_management.core.exceptions import FileTransactionError
 from asterisk_phone_management.core.transactions import ConfigTransaction
 
@@ -116,3 +121,153 @@ def test_config_transaction_rollback_skips_missing_backup(
     with pytest.raises(RuntimeError, match="Simulated error"):
         _delete_backups_then_fail(sip_conf)
     assert sip_conf.read_text(encoding="utf-8") == "changed"
+
+
+def _open_lock(path: Path) -> int:
+    """Open the lock file the same way ConfigTransaction does.
+
+    Args:
+        path: The lock file.
+
+    Returns:
+        An open file descriptor.
+    """
+    return os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+
+
+@pytest.fixture
+def held_lock(mock_asterisk_env: dict[str, Path]) -> Generator[int]:
+    """Hold the config lock, as another process would.
+
+    Yields:
+        The file descriptor holding the lock.
+    """
+    fd = _open_lock(mock_asterisk_env["lock_file"])
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    try:
+        yield fd
+    finally:
+        os.close(fd)
+
+
+def _assert_lock_free(sip_conf: Path) -> None:
+    """Assert a new transaction can take the lock immediately.
+
+    Args:
+        sip_conf: Any file to protect in the probe transaction.
+    """
+    with ConfigTransaction((sip_conf,), lock_timeout=0):
+        pass
+
+
+@pytest.mark.usefixtures("held_lock")
+def test_transaction_times_out_while_locked(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """A held lock makes the transaction give up without touching files."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    with (
+        pytest.raises(FileTransactionError, match="Another change"),
+        ConfigTransaction((sip_conf,), lock_timeout=0.2),
+    ):
+        pass
+    assert list(mock_asterisk_env["backup_dir"].iterdir()) == []
+
+
+def test_transaction_lock_released_after_success(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """After a normal exit, the next transaction gets the lock at once."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    with ConfigTransaction((sip_conf,), lock_timeout=0):
+        pass
+    _assert_lock_free(sip_conf)
+
+
+def test_transaction_lock_released_after_error(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """After an error in the block, the lock is still released."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    with pytest.raises(RuntimeError, match="Simulated error"):
+        _corrupt_then_fail(sip_conf)
+    _assert_lock_free(sip_conf)
+
+
+def test_transaction_lock_released_after_backup_failure(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """If a backup fails in __enter__, the lock is released anyway."""
+    missing = mock_asterisk_env["etc_dir"] / "missing.conf"
+    with (
+        pytest.raises(FileTransactionError, match="Backup failed"),
+        ConfigTransaction((missing,), lock_timeout=0),
+    ):
+        pass
+    _assert_lock_free(mock_asterisk_env["sip_conf"])
+
+
+def test_transaction_lock_released_after_rollback_failure(
+    mock_asterisk_env: dict[str, Path], mocker: MockerFixture
+) -> None:
+    """Even if the rollback itself fails, the lock is released."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    with pytest.raises(RuntimeError, match="Simulated error"):
+        _fail_with_broken_rollback(sip_conf, mocker)
+    mocker.stopall()
+    _assert_lock_free(sip_conf)
+
+
+def test_transaction_unopenable_lock_file(
+    mock_asterisk_env: dict[str, Path],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A lock file in a missing directory gives a clear error."""
+    monkeypatch.setattr(
+        transactions, "LOCK_FILE", tmp_path / "missing-dir" / "x.lock"
+    )
+    with (
+        pytest.raises(FileTransactionError, match="Cannot open lock file"),
+        ConfigTransaction((mock_asterisk_env["sip_conf"],), lock_timeout=0),
+    ):
+        pass
+
+
+def test_transaction_waits_for_lock(
+    mock_asterisk_env: dict[str, Path], held_lock: int
+) -> None:
+    """A transaction waits and succeeds once the other holder lets go."""
+    release = threading.Timer(
+        0.2, fcntl.flock, args=(held_lock, fcntl.LOCK_UN)
+    )
+    release.start()
+    try:
+        with ConfigTransaction(
+            (mock_asterisk_env["sip_conf"],), lock_timeout=5
+        ) as transaction:
+            assert transaction.backups
+    finally:
+        release.cancel()
+
+
+def test_transaction_holds_lock_inside_block(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """While a transaction is open, nobody else can take the lock."""
+    with ConfigTransaction((mock_asterisk_env["sip_conf"],)):
+        fd = _open_lock(mock_asterisk_env["lock_file"])
+        try:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        finally:
+            os.close(fd)
+
+
+def test_transaction_release_without_lock_is_harmless(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """Releasing when no lock is held does nothing and doesn't raise."""
+    transaction = ConfigTransaction((mock_asterisk_env["sip_conf"],))
+    transaction._release_lock()
+    _assert_lock_free(mock_asterisk_env["sip_conf"])
