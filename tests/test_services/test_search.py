@@ -141,7 +141,7 @@ def test_search_for_mac_address_xml_found(
 
     # Create mock XML file with matching MAC address pattern
     xml_file: Path = tftpboot / "SEP112233445566.cnf.xml"
-    xml_file.write_text("<name>112233445566</name>\n", encoding="utf-8")
+    xml_file.write_text("<name>SEP112233445566</name>\n", encoding="utf-8")
 
     results = search_for_mac_address("112233445566")
 
@@ -177,6 +177,38 @@ def test_search_for_mac_address_read_error(
             search_for_mac_address("112233445566")
     finally:
         sip_conf.chmod(0o644)
+
+
+@pytest.mark.parametrize(
+    "mac", ["112233445566", "11:22:33:44:55:66", "11-22-33-44-55-66"]
+)
+@pytest.mark.usefixtures("mock_asterisk_env")
+def test_search_for_mac_address_accepts_any_format(mac: str) -> None:
+    """Separated and lowercase input finds the same files as normalized."""
+    file_names = {m.file_path.name for m in search_for_mac_address(mac)}
+    assert file_names == {
+        "sip.conf",
+        "extensions.conf",
+        "SEP112233445566.cnf.xml",
+    }
+
+
+def test_search_for_mac_address_matches_lowercase_config(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """Config lines written in lowercase are still found."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    sip_conf.write_text("[sepaabbccddeeff](phone)\n", encoding="utf-8")
+    results = search_for_mac_address("AABBCCDDEEFF")
+    assert [m.file_path.name for m in results] == ["sip.conf"]
+
+
+def test_mac_match_rules_ignore_case() -> None:
+    """Both config matchers compare MAC addresses case-insensitively."""
+    assert _is_sip_mac_match("[sepaabbccddeeff](phone)", "AABBCCDDEEFF")
+    assert _is_extensions_mac_match(
+        "exten => 1001,1,Dial(SIP/sepaabbccddeeff,14,t)", "AABBCCDDEEFF"
+    )
 
 
 def test_search_for_caller_id_found(

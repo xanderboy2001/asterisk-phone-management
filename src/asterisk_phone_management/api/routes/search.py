@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Path
 
 from asterisk_phone_management.api.responses import ConfigMatchResponse
 from asterisk_phone_management.core.validators import (
+    normalize_mac_addr,
     validate_extension,
     validate_mac_addr,
 )
@@ -103,6 +104,7 @@ def search_mac_address(
     if validation_result is not True:
         raise HTTPException(status_code=400, detail=str(validation_result))
 
+    mac_address = normalize_mac_addr(mac_address)
     matches: list[ConfigMatch] = search_for_mac_address(mac_address)
 
     if not matches:

@@ -5,15 +5,67 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
+from asterisk_phone_management import helpers
+from asterisk_phone_management.core.constants import CallForwardingDefinition
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.helpers import (
     backup_config_file,
     copy_file_safe,
+    get_call_forwarding_config,
     get_caller_id_from_ext,
     get_ext_from_mac,
     get_mac_from_ext,
 )
 from asterisk_phone_management.schemas.models import ConfigMatch
+
+FORWARD_USER = CallForwardingDefinition(
+    name="Buzz Lightyear", extension="1001", forwarding_number="15555550100"
+)
+
+
+@pytest.fixture
+def forwarding_conf(
+    mock_asterisk_env: dict[str, Path], monkeypatch: pytest.MonkeyPatch
+) -> Path:
+    """Point helpers at the test extensions.conf.
+
+    Returns:
+        The test extensions.conf path.
+    """
+    ext_conf = mock_asterisk_env["ext_conf"]
+    monkeypatch.setattr(helpers, "EXTENSIONS_CONF", ext_conf)
+    return ext_conf
+
+
+def test_get_call_forwarding_config_found(forwarding_conf: Path) -> None:
+    """The single line containing the forwarding number is returned."""
+    forwarding_conf.write_text(
+        "[default]\n"
+        "exten => 1001,1,Dial(SIP/SEP112233445566,14,t)"
+        ";&SIP/15555550100@cisco_vg\n",
+        encoding="utf-8",
+    )
+    match = get_call_forwarding_config(FORWARD_USER)
+    assert match.line_number == 2
+    assert "15555550100" in match.matched_text
+
+
+@pytest.mark.usefixtures("forwarding_conf")
+def test_get_call_forwarding_config_not_found() -> None:
+    """No line with the forwarding number raises."""
+    with pytest.raises(AsteriskCliError, match="Could not find any matches"):
+        get_call_forwarding_config(FORWARD_USER)
+
+
+def test_get_call_forwarding_config_multiple(
+    forwarding_conf: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """More than one candidate line raises and logs each one."""
+    line = "exten => 1001,1,Dial(SIP/SEP1,14,t);&SIP/15555550100@cisco_vg\n"
+    forwarding_conf.write_text("[default]\n" + line + line, encoding="utf-8")
+    with pytest.raises(AsteriskCliError, match="Multiple matches found"):
+        get_call_forwarding_config(FORWARD_USER)
+    assert caplog.text.count("15555550100") >= 2
 
 
 def test_copy_file_safe_success(tmp_path: Path) -> None:
