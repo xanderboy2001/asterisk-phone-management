@@ -9,6 +9,7 @@ from asterisk_phone_management import helpers
 from asterisk_phone_management.core.constants import CallForwardingDefinition
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.helpers import (
+    atomic_write_text,
     backup_config_file,
     copy_file_safe,
     get_call_forwarding_config,
@@ -263,3 +264,158 @@ def test_get_ext_from_mac_ignores_longer_extension(tmp_path: Path) -> None:
         AsteriskCliError, match="Could not determine extension"
     ):
         get_ext_from_mac([match])
+
+
+def _temp_files(directory: Path) -> list[Path]:
+    """Return leftover atomic-write temp files in a directory.
+
+    Args:
+        directory: The directory to check.
+
+    Returns:
+        Any hidden ``.tmp`` files left behind.
+    """
+    return list(directory.glob(".*.tmp"))
+
+
+def test_atomic_write_text_replaces_contents(tmp_path: Path) -> None:
+    """The file ends up with exactly the new contents."""
+    target = tmp_path / "sip.conf"
+    target.write_text("old\n", encoding="utf-8")
+
+    atomic_write_text(target, "new\n")
+
+    assert target.read_text(encoding="utf-8") == "new\n"
+
+
+def test_atomic_write_text_keeps_permissions(tmp_path: Path) -> None:
+    """The replaced file keeps the original file's mode."""
+    target = tmp_path / "sip.conf"
+    target.write_text("old\n", encoding="utf-8")
+    target.chmod(0o640)
+
+    atomic_write_text(target, "new\n")
+
+    assert target.stat().st_mode & 0o777 == 0o640
+
+
+def test_atomic_write_text_keeps_owner(tmp_path: Path) -> None:
+    """The replaced file keeps the original file's owner and group."""
+    target = tmp_path / "sip.conf"
+    target.write_text("old\n", encoding="utf-8")
+    before = target.stat()
+
+    atomic_write_text(target, "new\n")
+
+    after = target.stat()
+    assert (after.st_uid, after.st_gid) == (before.st_uid, before.st_gid)
+
+
+def test_atomic_write_text_leaves_no_temp_file(tmp_path: Path) -> None:
+    """A successful write cleans up after itself."""
+    target = tmp_path / "sip.conf"
+    target.write_text("old\n", encoding="utf-8")
+
+    atomic_write_text(target, "new\n")
+
+    assert _temp_files(tmp_path) == []
+
+
+def test_atomic_write_text_failed_rename_keeps_original(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    """A failed rename leaves the original and no temp file."""
+    target = tmp_path / "sip.conf"
+    target.write_text("old\n", encoding="utf-8")
+    mocker.patch.object(Path, "replace", side_effect=OSError("disk full"))
+
+    with pytest.raises(OSError, match="disk full"):
+        atomic_write_text(target, "new\n")
+
+    assert target.read_text(encoding="utf-8") == "old\n"
+    assert _temp_files(tmp_path) == []
+
+
+def test_atomic_write_text_failed_write_keeps_original(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    """A failed flush to disk leaves the original and no temp file."""
+    target = tmp_path / "sip.conf"
+    target.write_text("old\n", encoding="utf-8")
+    mocker.patch(
+        "asterisk_phone_management.helpers.os.fsync",
+        side_effect=OSError("I/O error"),
+    )
+
+    with pytest.raises(OSError, match="I/O error"):
+        atomic_write_text(target, "new\n")
+
+    assert target.read_text(encoding="utf-8") == "old\n"
+    assert _temp_files(tmp_path) == []
+
+
+def test_atomic_write_text_failed_chown_keeps_original(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    """If the owner can't be copied, nothing is replaced."""
+    target = tmp_path / "sip.conf"
+    target.write_text("old\n", encoding="utf-8")
+    mocker.patch(
+        "asterisk_phone_management.helpers.os.chown",
+        side_effect=PermissionError("not root"),
+    )
+
+    with pytest.raises(PermissionError, match="not root"):
+        atomic_write_text(target, "new\n")
+
+    assert target.read_text(encoding="utf-8") == "old\n"
+    assert _temp_files(tmp_path) == []
+
+
+def test_atomic_write_text_cleans_up_on_ctrl_c(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    """Ctrl+C mid-write still removes the temp file."""
+    target = tmp_path / "sip.conf"
+    target.write_text("old\n", encoding="utf-8")
+    mocker.patch.object(Path, "replace", side_effect=KeyboardInterrupt)
+
+    with pytest.raises(KeyboardInterrupt):
+        atomic_write_text(target, "new\n")
+
+    assert target.read_text(encoding="utf-8") == "old\n"
+    assert _temp_files(tmp_path) == []
+
+
+def test_atomic_write_text_follows_symlink(tmp_path: Path) -> None:
+    """Writing through a symlink updates the real file and keeps the link."""
+    real = tmp_path / "real.conf"
+    real.write_text("old\n", encoding="utf-8")
+    link = tmp_path / "link.conf"
+    link.symlink_to(real)
+
+    atomic_write_text(link, "new\n")
+
+    assert link.is_symlink()
+    assert real.read_text(encoding="utf-8") == "new\n"
+
+
+def test_atomic_write_text_readers_never_see_partial_file(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    """Until the rename, the original file still has its full contents."""
+    target = tmp_path / "sip.conf"
+    target.write_text("old\n", encoding="utf-8")
+    seen: list[str] = []
+    real_replace = Path.replace
+
+    def _check_then_replace(self: Path, other: Path) -> Path:
+        seen.append(target.read_text(encoding="utf-8"))
+        return real_replace(self, other)
+
+    mocker.patch.object(Path, "replace", _check_then_replace)
+
+    atomic_write_text(target, "new\n")
+
+    assert seen == ["old\n"]
+    assert target.read_text(encoding="utf-8") == "new\n"
