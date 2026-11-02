@@ -127,7 +127,7 @@ multidict==7.1.0
     #   yarl
 nicegui==3.18.0
     # via asterisk-phone-management
-opentelemetry-api==1.45.1
+opentelemetry-api==1.45.2
     # via
     #   fastapi
     #   opentelemetry-exporter-http-transport
