@@ -49,8 +49,10 @@ from asterisk_phone_management.schemas.models import (
     Voicemail,
 )
 from asterisk_phone_management.services.search import (
+    extension_line_re,
     search_for_extension,
     search_for_mac_address,
+    voicemail_line_re,
 )
 
 
@@ -130,11 +132,9 @@ def _remove_extension_lines(ext_conf: Path, extension: str) -> None:
         extension: Target extension number to remove.
     """
     content = ext_conf.read_text(encoding="utf-8")
-    lines = content.splitlines()
+    pattern = extension_line_re(extension)
     new_lines = [
-        line
-        for line in lines
-        if not line.strip().startswith(f"exten => {extension}")
+        line for line in content.splitlines() if not pattern.search(line)
     ]
     ext_conf.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
     log.debug("Removed extension %s entries from %s", extension, ext_conf.name)
@@ -148,9 +148,9 @@ def _remove_voicemail_entry(vm_conf: Path, extension: str) -> None:
         extension: Extension box number to purge.
     """
     content = vm_conf.read_text(encoding="utf-8")
-    lines = content.splitlines()
+    pattern = voicemail_line_re(extension)
     new_lines = [
-        line for line in lines if not line.strip().startswith(extension)
+        line for line in content.splitlines() if not pattern.search(line)
     ]
     vm_conf.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
     log.debug("Removed voicemail box %s from %s", extension, vm_conf.name)

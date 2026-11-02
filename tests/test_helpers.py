@@ -250,3 +250,16 @@ def test_get_caller_id_from_ext_failure(tmp_path: Path) -> None:
         AsteriskCliError, match="Could not determine caller ID"
     ):
         get_caller_id_from_ext([invalid_match])
+
+
+def test_get_ext_from_mac_ignores_longer_extension(tmp_path: Path) -> None:
+    """A five-digit extension isn't cut down to its first four digits."""
+    match = ConfigMatch(
+        file_path=tmp_path / "extensions.conf",
+        line_number=1,
+        matched_text="exten => 10012,1,Dial(SIP/SEP112233445566,14,t)",
+    )
+    with pytest.raises(
+        AsteriskCliError, match="Could not determine extension"
+    ):
+        get_ext_from_mac([match])
