@@ -101,7 +101,7 @@ def normalize_mac_addr(mac_address: str) -> str:
     Returns:
         The normalized MAC address, e.g. ``AABBCCDDEEFF``.
     """
-    return _MAC_SEPARATORS.sub("", mac_address.strip()).upper()
+    return _MAC_SEPARATORS.sub("", mac_address).strip().upper()
 
 
 def validate_mac_addr(mac_address: str) -> bool | str:
