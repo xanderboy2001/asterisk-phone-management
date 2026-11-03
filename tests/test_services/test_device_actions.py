@@ -323,7 +323,13 @@ def test_reload_asterisk_full_flow(mocker: MockerFixture) -> None:
 
     device_actions.reload_asterisk()
 
-    assert mock_reload_mod.call_count == 3
+    assert mock_reload_mod.call_args_list == [
+        mocker.call(
+            command="voicemail reload", friendly_name="voicemail configuration"
+        ),
+        mocker.call(command="sip reload", friendly_name="SIP configuration"),
+        mocker.call(command="dialplan reload", friendly_name="dialplan"),
+    ]
 
 
 def test_reload_asterisk_not_running(mocker: MockerFixture) -> None:

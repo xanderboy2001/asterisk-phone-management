@@ -5,7 +5,10 @@ from unittest.mock import MagicMock
 import pytest
 from nicegui.testing import User
 
-from asterisk_phone_management.core.exceptions import FileTransactionError
+from asterisk_phone_management.core.exceptions import (
+    AsteriskServiceError,
+    FileTransactionError,
+)
 from asterisk_phone_management.web.pages import (
     voicemail_reset as voicemail_page,
 )
@@ -117,3 +120,68 @@ async def test_voicemail_reset_unexpected_error_is_reported(
     await user.should_see(
         "Couldn't reset the voicemail password for 1234: unexpected error"
     )
+
+
+async def _confirm_reset(user: User) -> None:
+    """Submit extension 1234 and confirm the dialog.
+
+    Args:
+        user: The simulated browser session.
+    """
+    await user.open("/voicemail-reset")
+    user.find("Enter an Extension").type("1234")
+    user.find("Submit").click()
+    await user.should_see(marker="confirm-yes")
+    user.find(marker="confirm-yes").click()
+
+
+async def test_voicemail_reset_reloads_voicemail(
+    user: User, monkeypatch: pytest.MonkeyPatch, mock_reload: MagicMock
+) -> None:
+    """A successful reset reloads voicemail, and nothing else (F-17)."""
+    monkeypatch.setattr(voicemail_page, "reset_vm_password", MagicMock())
+    await _confirm_reset(user)
+    await user.should_see("Asterisk reloaded the voicemail configuration.")
+    mock_reload.assert_called_once_with(
+        command="voicemail reload", friendly_name="voicemail configuration"
+    )
+
+
+async def test_voicemail_reset_failure_does_not_reload(
+    user: User, monkeypatch: pytest.MonkeyPatch, mock_reload: MagicMock
+) -> None:
+    """A failed reset doesn't reload Asterisk."""
+    monkeypatch.setattr(
+        voicemail_page,
+        "reset_vm_password",
+        MagicMock(side_effect=FileTransactionError("disk full")),
+    )
+    await _confirm_reset(user)
+    await user.should_see("Failed to reset voicemail password")
+    mock_reload.assert_not_called()
+
+
+async def test_voicemail_reset_cancel_does_not_reload(
+    user: User, monkeypatch: pytest.MonkeyPatch, mock_reload: MagicMock
+) -> None:
+    """Cancelling doesn't reload Asterisk."""
+    mock_reset = MagicMock()
+    monkeypatch.setattr(voicemail_page, "reset_vm_password", mock_reset)
+    await user.open("/voicemail-reset")
+    user.find("Enter an Extension").type("1234")
+    user.find("Submit").click()
+    await user.should_see(marker="confirm-no")
+    user.find(marker="confirm-no").click()
+    mock_reset.assert_not_called()
+    mock_reload.assert_not_called()
+
+
+async def test_voicemail_reset_reload_failure_keeps_success(
+    user: User, monkeypatch: pytest.MonkeyPatch, mock_reload: MagicMock
+) -> None:
+    """If the reload fails, the reset still reports success plus a warning."""
+    monkeypatch.setattr(voicemail_page, "reset_vm_password", MagicMock())
+    mock_reload.side_effect = AsteriskServiceError("Asterisk is not running.")
+    await _confirm_reset(user)
+    await user.should_see("Successfully reset voicemail password for 1234.")
+    await user.should_see("Saved, but Asterisk couldn't reload")

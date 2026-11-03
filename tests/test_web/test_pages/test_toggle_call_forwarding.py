@@ -6,7 +6,10 @@ import pytest
 from nicegui.testing import User
 
 from asterisk_phone_management.core.constants import CallForwardingDefinition
-from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.core.exceptions import (
+    AsteriskCliError,
+    AsteriskServiceError,
+)
 from asterisk_phone_management.web.pages import (
     toggle_call_forwarding as forwarding_page,
 )
@@ -145,3 +148,55 @@ async def test_toggle_without_selection_warns(user: User) -> None:
     await user.open("/toggle-call-forwarding")
     user.find("Submit").click()
     await user.should_see("No user selected!")
+
+
+async def test_toggle_reloads_dialplan(
+    user: User, monkeypatch: pytest.MonkeyPatch, mock_reload: MagicMock
+) -> None:
+    """A successful toggle reloads the dialplan (F-17)."""
+    monkeypatch.setattr(
+        forwarding_page, "forwarding_enabled", MagicMock(return_value=False)
+    )
+    monkeypatch.setattr(forwarding_page, "toggle_call_forwarding", MagicMock())
+    await _submit(user)
+    await user.should_see(marker="confirm-yes")
+    user.find(marker="confirm-yes").click()
+    await user.should_see("Asterisk reloaded the dialplan.")
+    mock_reload.assert_called_once_with(
+        command="dialplan reload", friendly_name="dialplan"
+    )
+
+
+async def test_toggle_failure_does_not_reload(
+    user: User, monkeypatch: pytest.MonkeyPatch, mock_reload: MagicMock
+) -> None:
+    """A failed toggle doesn't reload Asterisk."""
+    monkeypatch.setattr(
+        forwarding_page, "forwarding_enabled", MagicMock(return_value=False)
+    )
+    monkeypatch.setattr(
+        forwarding_page,
+        "toggle_call_forwarding",
+        MagicMock(side_effect=AsteriskCliError("line changed")),
+    )
+    await _submit(user)
+    await user.should_see(marker="confirm-yes")
+    user.find(marker="confirm-yes").click()
+    await user.should_see("Failed to enable call forwarding")
+    mock_reload.assert_not_called()
+
+
+async def test_toggle_reload_failure_keeps_success(
+    user: User, monkeypatch: pytest.MonkeyPatch, mock_reload: MagicMock
+) -> None:
+    """If the reload fails, the toggle still reports success plus a warning."""
+    monkeypatch.setattr(
+        forwarding_page, "forwarding_enabled", MagicMock(return_value=False)
+    )
+    monkeypatch.setattr(forwarding_page, "toggle_call_forwarding", MagicMock())
+    mock_reload.side_effect = AsteriskServiceError("Asterisk is not running.")
+    await _submit(user)
+    await user.should_see(marker="confirm-yes")
+    user.find(marker="confirm-yes").click()
+    await user.should_see("Enabled call forwarding")
+    await user.should_see("Saved, but Asterisk couldn't reload the dialplan.")

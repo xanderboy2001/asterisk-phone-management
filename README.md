@@ -106,7 +106,9 @@ API endpoints:
 | `GET`  | `/api/v1/search/mac_address/{mac_address}` | Find a MAC address             |
 | `GET`  | `/api/v1/search/caller_id/{caller_id}`     | Find a caller ID in `sip.conf` |
 
-Changes made from the web UI are written to the config files but don't reload Asterisk. Run **Reload Asterisk** from the CLI to apply them.
+After a change in the web UI is saved, the affected Asterisk module is reloaded automatically: `voicemail reload` for PIN resets, `sip reload` for caller ID edits, and `dialplan reload` for call forwarding. If the reload fails (for example, Asterisk isn't running), the change stays saved and the page shows a warning; run **Reload Asterisk** from the CLI to apply it. The web app's user needs permission to run `asterisk -rx`.
+
+Changes made from the CLI still need **Reload Asterisk** from the menu, so you can make several changes and reload once.
 
 ## Backups
 

@@ -125,3 +125,18 @@ async def test_reboot_unexpected_error_is_reported(
     with user.scope(ui.dialog):
         user.find(marker="confirm-yes").click()
     await user.should_see("Couldn't reboot 1234: unexpected error")
+
+
+async def test_reboot_does_not_reload_asterisk(
+    user: User, monkeypatch: pytest.MonkeyPatch, mock_reload: MagicMock
+) -> None:
+    """Rebooting a phone changes no config, so nothing is reloaded."""
+    monkeypatch.setattr(reboot_page, "reboot_phone", MagicMock())
+    await user.open("/reboot-phone")
+    user.find("Enter an Extension").type("1234")
+    user.find("Submit").click()
+    await user.should_see(marker="confirm-yes")
+    with user.scope(ui.dialog):
+        user.find(marker="confirm-yes").click()
+    await user.should_see("Successfully sent reboot command to 1234.")
+    mock_reload.assert_not_called()

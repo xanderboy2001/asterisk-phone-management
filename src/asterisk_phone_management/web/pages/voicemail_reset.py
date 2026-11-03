@@ -7,10 +7,12 @@ from asterisk_phone_management.core.exceptions import (
     FileTransactionError,
 )
 from asterisk_phone_management.core.validators import validate_extension
+from asterisk_phone_management.services.device_actions import VOICEMAIL_MODULE
 from asterisk_phone_management.services.voicemail import reset_vm_password
 from asterisk_phone_management.web.utils import theme
 from asterisk_phone_management.web.utils.errors import report_unexpected_error
 from asterisk_phone_management.web.utils.inputs import extension_input
+from asterisk_phone_management.web.utils.reload import reload_after_change
 from asterisk_phone_management.web.utils.styles import (
     BUTTON_CLASSES,
     BUTTON_PROPS,
@@ -55,26 +57,32 @@ async def on_submit(extension: str | None) -> None:
 
     confirmed = await dialog
 
-    if confirmed:
-        try:
-            ui.notify(
-                f"Resetting voicemail password for {extension}...", type="info"
-            )
-            reset_vm_password(extension=extension, new_pin=extension)
-            ui.notify(
-                f"Successfully reset voicemail password for {extension}.",
-                type="positive",
-            )
-        except (AsteriskCliError, FileTransactionError) as e:
-            ui.notify(
-                f"Failed to reset voicemail password for {extension}: {e!s}",
-                type="negative",
-                multi_line=True,
-            )
-        except Exception:  # ruff: ignore[blind-except] - last-resort handler
-            report_unexpected_error(
-                f"reset the voicemail password for {extension}"
-            )
+    if not confirmed:
+        return
+
+    try:
+        ui.notify(
+            f"Resetting voicemail password for {extension}...", type="info"
+        )
+        reset_vm_password(extension=extension, new_pin=extension)
+        ui.notify(
+            f"Successfully reset voicemail password for {extension}.",
+            type="positive",
+        )
+    except (AsteriskCliError, FileTransactionError) as e:
+        ui.notify(
+            f"Failed to reset voicemail password for {extension}: {e!s}",
+            type="negative",
+            multi_line=True,
+        )
+        return
+    except Exception:  # ruff: ignore[blind-except] - last-resort handler
+        report_unexpected_error(
+            f"reset the voicemail password for {extension}"
+        )
+        return
+
+    reload_after_change(VOICEMAIL_MODULE)
 
 
 def register_page() -> None:

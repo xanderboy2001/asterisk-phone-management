@@ -13,8 +13,10 @@ from asterisk_phone_management.services.call_forwarding import (
     forwarding_enabled,
     toggle_call_forwarding,
 )
+from asterisk_phone_management.services.device_actions import DIALPLAN_MODULE
 from asterisk_phone_management.web.utils import theme
 from asterisk_phone_management.web.utils.errors import report_unexpected_error
+from asterisk_phone_management.web.utils.reload import reload_after_change
 from asterisk_phone_management.web.utils.styles import (
     BUTTON_CLASSES,
     BUTTON_PROPS,
@@ -103,8 +105,12 @@ async def on_submit(user: CallForwardingDefinition) -> None:
             multi_line=True,
             textColor="dark",
         )
+        return
     except Exception:  # ruff: ignore[blind-except] - last-resort handler
         report_unexpected_error(f"{action} call forwarding for {user.name}")
+        return
+
+    reload_after_change(DIALPLAN_MODULE)
 
 
 def register_page() -> None:
