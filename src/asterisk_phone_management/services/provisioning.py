@@ -38,6 +38,7 @@ from asterisk_phone_management.core.validators import (
     validate_vm_field,
 )
 from asterisk_phone_management.helpers import (
+    atomic_write_text,
     copy_file_safe,
     get_caller_id_from_ext,
     get_ext_from_mac,
@@ -66,7 +67,7 @@ def _patch_cnf_xml(file_path: Path, placeholder: str, new_value: str) -> None:
     """
     content: str = file_path.read_text(encoding="utf-8")
     updated_content: str = content.replace(placeholder, new_value)
-    file_path.write_text(data=updated_content, encoding="utf-8")
+    atomic_write_text(file_path, updated_content)
 
 
 def _remove_cnf_xml(file_path: Path) -> None:
@@ -120,7 +121,7 @@ def _remove_sip_section(sip_conf: Path, mac_address: str) -> None:
         if not skip:
             new_lines.append(line)
 
-    sip_conf.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    atomic_write_text(sip_conf, "\n".join(new_lines) + "\n")
     log.debug("Removed section %s from %s", target_header, sip_conf.name)
 
 
@@ -136,7 +137,7 @@ def _remove_extension_lines(ext_conf: Path, extension: str) -> None:
     new_lines = [
         line for line in content.splitlines() if not pattern.search(line)
     ]
-    ext_conf.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    atomic_write_text(ext_conf, "\n".join(new_lines) + "\n")
     log.debug("Removed extension %s entries from %s", extension, ext_conf.name)
 
 
@@ -152,7 +153,7 @@ def _remove_voicemail_entry(vm_conf: Path, extension: str) -> None:
     new_lines = [
         line for line in content.splitlines() if not pattern.search(line)
     ]
-    vm_conf.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    atomic_write_text(vm_conf, "\n".join(new_lines) + "\n")
     log.debug("Removed voicemail box %s from %s", extension, vm_conf.name)
 
 
@@ -301,7 +302,7 @@ def _replace_mac_in_file(file_path: Path, old_mac: str, new_mac: str) -> None:
         )
         return
 
-    file_path.write_text(data=updated_content, encoding="utf-8")
+    atomic_write_text(file_path, updated_content)
     log.info("Updated %s", file_path.name)
 
 
@@ -346,12 +347,15 @@ def _generate_cnf_xml(extension: str, mac_address: str) -> None:
 def _patch_file(file_path: Path, content: str) -> None:
     """Append a given string to a config file.
 
+    The whole file is rewritten atomically, so readers never see a
+    partly appended entry.
+
     Args:
         file_path: Path of file to modify.
         content: String content to append.
     """
-    with file_path.open(mode="a", encoding="utf-8") as file:
-        file.write(content)
+    existing = file_path.read_text(encoding="utf-8")
+    atomic_write_text(file_path, existing + content)
     # Content is deliberately not logged: it can contain SIP secrets and
     # voicemail details.
     log.debug("Appended %d characters to '%s'", len(content), file_path)

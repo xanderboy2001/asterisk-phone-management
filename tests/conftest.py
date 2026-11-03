@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from asterisk_phone_management import edit_files, helpers
-from asterisk_phone_management.core import constants
+from asterisk_phone_management.core import constants, transactions
 from asterisk_phone_management.schemas.models import (
     ActiveCall,
     ConfigMatch,
@@ -19,6 +19,20 @@ from asterisk_phone_management.services import (
     search,
     voicemail,
 )
+
+
+@pytest.fixture(autouse=True)
+def isolated_lock_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Path:
+    """Keep every test's config lock out of the real /etc/asterisk.
+
+    Returns:
+        The lock file path used for this test.
+    """
+    lock_file = tmp_path / ".asterisk-phone-management.lock"
+    monkeypatch.setattr(transactions, "LOCK_FILE", lock_file)
+    return lock_file
 
 
 @pytest.fixture
@@ -72,6 +86,7 @@ def mock_asterisk_env(
         encoding="utf-8",
     )
 
+    lock_file: Path = etc_dir / ".asterisk-phone-management.lock"
     patches: dict[object, dict[str, object]] = {
         constants: {
             "ETC_ASTERISK": etc_dir,
@@ -103,6 +118,7 @@ def mock_asterisk_env(
             "VOICEMAIL_CONF": vm_conf,
         },
         helpers: {"TFTPBOOT": tftp_dir},
+        transactions: {"LOCK_FILE": lock_file},
     }
     for module, attrs in patches.items():
         for name, value in attrs.items():
@@ -117,6 +133,7 @@ def mock_asterisk_env(
         "vm_conf": vm_conf,
         "xml_template": xml_template,
         "existing_xml": existing_xml,
+        "lock_file": lock_file,
     }
 
 

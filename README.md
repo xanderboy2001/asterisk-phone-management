@@ -56,6 +56,7 @@ Settings are read from environment variables. A `.env` file in the working direc
 | `ASTERISK_CLI_WEB_AUTH`             | `none`                                                | `none` or `basic` (one shared login)                       |
 | `ASTERISK_CLI_WEB_USER`             | _Required for basic_                                  | Shared login username                                      |
 | `ASTERISK_CLI_WEB_PASSWORD`         | _Required for basic_                                  | Shared login password                                      |
+| `ASTERISK_CLI_LOCK_FILE`            | `/etc/asterisk/.asterisk-phone-management.lock`       | Lock that stops the CLI and web UI from editing at once    |
 
 > [!IMPORTANT]
 > Phone reboots need ASTERISK_CLI_PHONE_SSH_USER and ASTERISK_CLI_PHONE_SSH_PASS.

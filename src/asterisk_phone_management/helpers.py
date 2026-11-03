@@ -1,7 +1,9 @@
 """Helper functions."""
 
+import os
 import re
 import shutil
+import tempfile
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +22,66 @@ from asterisk_phone_management.core.constants import (
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.schemas.models import ConfigMatch
 from asterisk_phone_management.services.search import search_for_extension
+
+
+def _fill_temp_file(fd: int, tmp: Path, target: Path, data: bytes) -> None:
+    """Write data to a temp file and match the target's mode and owner.
+
+    Args:
+        fd: Open file descriptor for the temp file; closed on return.
+        tmp: Path of the temp file.
+        target: The file the temp file will replace.
+        data: The complete new contents.
+    """
+    # Write the data and force it to disk.
+    with os.fdopen(fd, "wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    # Copy the original file's permissions and owner so Asterisk can
+    # still read it.
+    shutil.copymode(target, tmp)
+    st = target.stat()
+    os.chown(tmp, st.st_uid, st.st_gid)
+
+
+def atomic_write_text(path: Path, data: str) -> None:
+    """Replace a file's contents with UTF-8 text, atomically.
+
+    See ``atomic_write_bytes`` for how the replacement works.
+
+    Args:
+        path: The file to replace.
+        data: The complete new contents.
+    """
+    atomic_write_bytes(path, data.encode("utf-8"))
+
+
+def atomic_write_bytes(path: Path, data: bytes) -> None:
+    """Replace a file's contents so readers never see a partial write.
+
+    The new contents are written to a temporary file in the same
+    directory, then renamed over the original in one step. If anything
+    fails, the temporary file is removed and the original is untouched.
+
+    Args:
+        path: The file to replace.
+        data: The complete new contents.
+    """
+    # Follow symlinks, so we replace the real file, not the link.
+    target: Path = path.resolve()
+    # Same directory = same filesystem, so the rename is atomic.
+    fd, tmp_name = tempfile.mkstemp(
+        dir=target.parent, prefix=f".{target.name}.", suffix=".tmp"
+    )
+    tmp = Path(tmp_name)
+    try:
+        _fill_temp_file(fd, tmp, target, data)
+        tmp.replace(target)
+    except BaseException:
+        # Includes Ctrl+C; always re-raised after cleanup.
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def copy_file_safe(src: Path, dst: Path) -> None:

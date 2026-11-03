@@ -8,6 +8,7 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     FileTransactionError,
 )
+from asterisk_phone_management.services import voicemail as voicemail_module
 from asterisk_phone_management.services.voicemail import reset_vm_password
 
 
@@ -46,7 +47,9 @@ def test_reset_vm_password_file_error(monkeypatch: pytest.MonkeyPatch) -> None:
         err_msg = "Permission denied"
         raise OSError(err_msg)
 
-    monkeypatch.setattr(Path, "write_text", _mock_write_text)
+    monkeypatch.setattr(
+        voicemail_module, "atomic_write_text", _mock_write_text
+    )
 
     with pytest.raises(FileTransactionError, match="Failed to modify"):
         reset_vm_password("1001", "5678")
