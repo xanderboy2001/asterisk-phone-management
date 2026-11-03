@@ -1,5 +1,6 @@
 """Unit tests for system helper functions."""
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -431,3 +432,28 @@ def test_atomic_write_bytes_writes_exact_bytes(tmp_path: Path) -> None:
 
     assert target.read_bytes() == b"a\r\n\xe9\n"
     assert list(tmp_path.glob(".*.tmp")) == []
+
+
+@pytest.mark.parametrize(
+    "lookup", [get_mac_from_ext, get_ext_from_mac], ids=["mac", "ext"]
+)
+def test_lookup_from_malformed_xml(
+    tmp_path: Path, lookup: Callable[[list[ConfigMatch]], str]
+) -> None:
+    """A broken .cnf.xml raises AsteriskCliError naming the file."""
+    xml = tmp_path / "SEP112233445566.cnf.xml"
+    xml.write_text("<device><name>SEP1122", encoding="utf-8")
+    match = ConfigMatch(file_path=xml, line_number=1, matched_text="")
+    with pytest.raises(AsteriskCliError, match=r"SEP112233445566\.cnf\.xml"):
+        lookup([match])
+
+
+def test_lookup_from_unreadable_xml(tmp_path: Path) -> None:
+    """A .cnf.xml that disappeared after the search is reported clearly."""
+    match = ConfigMatch(
+        file_path=tmp_path / "SEP112233445566.cnf.xml",
+        line_number=1,
+        matched_text="",
+    )
+    with pytest.raises(AsteriskCliError, match="Could not read phone config"):
+        get_mac_from_ext([match])
