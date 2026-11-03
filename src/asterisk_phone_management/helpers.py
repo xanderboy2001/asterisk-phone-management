@@ -119,8 +119,56 @@ def copy_file_safe(src: Path, dst: Path) -> None:
     log.debug("Copied '%s' to '%s'", src, dst)
 
 
+# Backups hold SIP secrets and voicemail PINs, so only the owner may read
+# them, whatever the process umask.
+_BACKUP_DIR_MODE: int = 0o700
+_BACKUP_FILE_MODE: int = 0o600
+
+
+def _write_private_copy(src: Path, dst: Path) -> None:
+    """Copy a file to a new file that only its owner can read.
+
+    The destination is created with mode 0600 in the same call that opens
+    it, so it is never readable by others, even briefly. It must not
+    already exist.
+
+    Args:
+        src: The file to copy.
+        dst: The new file to create.
+
+    Raises:
+        AsteriskCliError: If the source can't be read, the destination
+            already exists, or the copy fails.
+    """
+    try:
+        with src.open("rb") as source:
+            fd = os.open(
+                dst, os.O_WRONLY | os.O_CREAT | os.O_EXCL, _BACKUP_FILE_MODE
+            )
+            with os.fdopen(fd, "wb") as target:
+                shutil.copyfileobj(source, target)
+    except FileNotFoundError as e:
+        msg = f"Cannot back up {src}: file not found."
+        log.error(msg)
+        raise AsteriskCliError(msg) from e
+    except FileExistsError as e:
+        msg = f"Backup {dst} already exists; not overwriting it."
+        log.error(msg)
+        raise AsteriskCliError(msg) from e
+    except OSError as e:
+        dst.unlink(missing_ok=True)
+        msg = f"Failed to back up {src}: {e}"
+        log.error(msg)
+        raise AsteriskCliError(msg) from e
+
+
 def backup_config_file(src_config: Path) -> Path:
     """Back up a config file with an appended timestamp.
+
+    The backup directory is restricted to its owner (0700) and each backup
+    is created owner-only (0600), because the files contain SIP secrets
+    and voicemail PINs. An existing, more open backup directory is
+    tightened, which also protects backups made before this change.
 
     Args:
         src_config: The config to backup.
@@ -129,22 +177,24 @@ def backup_config_file(src_config: Path) -> Path:
         The path to the newly created backup.
 
     Raises:
-        AsteriskCliError: If permissions error occurs when
-            creating backup directory.
+        AsteriskCliError: If the backup directory can't be created or
+            restricted, or the backup can't be written.
     """
     backup_dir: Path = src_config.parent / "backup"
+    # Microseconds keep two backups made in the same second from clashing.
     timestamp: str = datetime.now(tz=ZoneInfo("America/New_York")).strftime(
-        "%Y-%m-%d_%H:%M:%S"
+        "%Y-%m-%d_%H:%M:%S.%f"
     )
     try:
-        backup_dir.mkdir(parents=True, exist_ok=True)
+        backup_dir.mkdir(mode=_BACKUP_DIR_MODE, parents=True, exist_ok=True)
+        backup_dir.chmod(_BACKUP_DIR_MODE)
     except PermissionError as e:
         msg = f"Permission denied creating backup directory: {backup_dir}"
         log.error(msg)
         raise AsteriskCliError(msg) from e
 
-    backup_path: Path = backup_dir / Path(f"{src_config.name}_{timestamp}")
-    copy_file_safe(src=src_config, dst=backup_path)
+    backup_path: Path = backup_dir / f"{src_config.name}_{timestamp}"
+    _write_private_copy(src_config, backup_path)
     log.debug("Backed up '%s'", src_config)
     return backup_path
 

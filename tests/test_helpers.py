@@ -1,6 +1,9 @@
 """Unit tests for system helper functions."""
 
-from collections.abc import Callable
+import os
+import re
+from collections.abc import Callable, Generator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -457,3 +460,104 @@ def test_lookup_from_unreadable_xml(tmp_path: Path) -> None:
     )
     with pytest.raises(AsteriskCliError, match="Could not read phone config"):
         get_mac_from_ext([match])
+
+
+# --- F-11: backups are owner-only ---
+
+
+@pytest.fixture
+def open_umask() -> Generator[None]:
+    """Run with the common server umask 022, then restore the old one.
+
+    Yields:
+        None.
+    """
+    old = os.umask(0o022)
+    try:
+        yield
+    finally:
+        os.umask(old)
+
+
+@pytest.mark.usefixtures("open_umask")
+def test_backup_is_owner_only(tmp_path: Path) -> None:
+    """A new backup and its directory are readable only by the owner."""
+    conf = tmp_path / "voicemail.conf"
+    conf.write_bytes(b"1001 => 1234,John\n")
+    conf.chmod(0o640)
+
+    backup = backup_config_file(conf)
+
+    assert backup.stat().st_mode & 0o777 == 0o600
+    assert backup.parent.stat().st_mode & 0o777 == 0o700
+    assert backup.read_bytes() == conf.read_bytes()
+
+
+@pytest.mark.usefixtures("open_umask")
+def test_backup_tightens_existing_directory(tmp_path: Path) -> None:
+    """An existing world-readable backup directory is restricted."""
+    backup_dir = tmp_path / "backup"
+    backup_dir.mkdir()
+    backup_dir.chmod(0o755)
+    old_backup = backup_dir / "sip.conf_old"
+    old_backup.write_text("secret=old\n", encoding="utf-8")
+    conf = tmp_path / "sip.conf"
+    conf.write_text("secret=new\n", encoding="utf-8")
+
+    backup_config_file(conf)
+
+    assert backup_dir.stat().st_mode & 0o777 == 0o700
+
+
+def test_backup_name_includes_microseconds(tmp_path: Path) -> None:
+    """Backups made in the same second get different names."""
+    conf = tmp_path / "sip.conf"
+    conf.write_text("x\n", encoding="utf-8")
+
+    backup = backup_config_file(conf)
+
+    assert re.fullmatch(
+        r"sip\.conf_\d{4}-\d{2}-\d{2}_\d{2}:\d{2}:\d{2}\.\d{6}", backup.name
+    )
+
+
+def test_backup_never_overwrites(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    """If a backup name is already taken, the old backup is kept."""
+    conf = tmp_path / "sip.conf"
+    conf.write_text("new\n", encoding="utf-8")
+    fixed = datetime(2026, 1, 1, 12, 0, 0, 123456, tzinfo=UTC)
+    fake_datetime = mocker.patch.object(helpers, "datetime")
+    fake_datetime.now.return_value = fixed
+    first = backup_config_file(conf)
+    first.write_text("original backup\n", encoding="utf-8")
+
+    with pytest.raises(AsteriskCliError, match="already exists"):
+        backup_config_file(conf)
+
+    assert first.read_text(encoding="utf-8") == "original backup\n"
+
+
+def test_backup_missing_source_leaves_nothing(tmp_path: Path) -> None:
+    """A missing source raises and leaves no empty backup behind."""
+    with pytest.raises(AsteriskCliError, match="file not found"):
+        backup_config_file(tmp_path / "missing.conf")
+
+    assert list((tmp_path / "backup").iterdir()) == []
+
+
+def test_backup_failed_copy_leaves_nothing(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    """A copy that fails partway removes the partial backup."""
+    conf = tmp_path / "sip.conf"
+    conf.write_text("x\n", encoding="utf-8")
+    mocker.patch.object(
+        helpers.shutil, "copyfileobj", side_effect=OSError("disk full")
+    )
+
+    with pytest.raises(AsteriskCliError, match="disk full"):
+        backup_config_file(conf)
+
+    assert list((tmp_path / "backup").iterdir()) == []
