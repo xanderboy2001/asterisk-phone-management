@@ -16,6 +16,7 @@ from asterisk_phone_management.core.validators import (
 )
 from asterisk_phone_management.schemas.models import ConfigMatch
 from asterisk_phone_management.services.caller_id import edit_caller_id
+from asterisk_phone_management.services.device_actions import SIP_MODULE
 from asterisk_phone_management.services.search import search_for_extension
 from asterisk_phone_management.web.utils import theme
 from asterisk_phone_management.web.utils.errors import report_unexpected_error
@@ -23,6 +24,7 @@ from asterisk_phone_management.web.utils.inputs import (
     caller_id_input,
     extension_input,
 )
+from asterisk_phone_management.web.utils.reload import reload_after_change
 from asterisk_phone_management.web.utils.styles import (
     BUTTON_CLASSES,
     BUTTON_PROPS,
@@ -33,6 +35,37 @@ from asterisk_phone_management.web.utils.styles import (
     RESULT_CARD_CLASSES,
     RESULTS_CONTAINER_CLASSES,
 )
+
+
+def _save_caller_id(
+    extension: str,
+    new_caller_id: str,
+    selected_matches: list[ConfigMatch],
+    entries: str,
+) -> bool:
+    count = len(selected_matches)
+    try:
+        edit_caller_id(selected_matches, new_caller_id)
+    except (AsteriskCliError, FileTransactionError) as e:
+        ui.notify(
+            f"Failed to set caller ID for extension {extension} "
+            f"to '{new_caller_id}': {e!s}",
+            type="negative",
+            multi_line=True,
+            textColor="dark",
+        )
+        return False
+    except Exception:  # ruff: ignore[blind-except] - last-resort handler
+        report_unexpected_error(f"set the caller ID for extension {extension}")
+        return False
+
+    ui.notify(
+        f"Successfully set caller ID of {count} {entries} "
+        f"for extension {extension} to '{new_caller_id}'.",
+        type="positive",
+        textColor="dark",
+    )
+    return True
 
 
 async def on_submit(
@@ -94,27 +127,10 @@ async def on_submit(
 
     confirmed = await dialog
 
-    if confirmed:
-        try:
-            edit_caller_id(selected_matches, new_caller_id)
-            ui.notify(
-                f"Successfully set caller ID of {count} {entries} "
-                f"for extension {extension} to '{new_caller_id}'.",
-                type="positive",
-                textColor="dark",
-            )
-        except (AsteriskCliError, FileTransactionError) as e:
-            ui.notify(
-                f"Failed to set caller ID for extension {extension} "
-                f"to '{new_caller_id}': {e!s}",
-                type="negative",
-                multi_line=True,
-                textColor="dark",
-            )
-        except Exception:  # ruff: ignore[blind-except] - last-resort handler
-            report_unexpected_error(
-                f"set the caller ID for extension {extension}"
-            )
+    if confirmed and _save_caller_id(
+        extension, new_caller_id, selected_matches, entries
+    ):
+        reload_after_change(SIP_MODULE)
 
 
 def register_page() -> None:

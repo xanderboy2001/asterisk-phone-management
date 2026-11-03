@@ -10,6 +10,7 @@ import pytest
 from nicegui import ui
 from nicegui.testing import User
 
+from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.schemas.models import ConfigMatch
 from asterisk_phone_management.web.pages import edit_caller_id
 
@@ -234,3 +235,34 @@ async def test_unexpected_error_is_reported(
     await user.should_see(
         "Couldn't set the caller ID for extension 1001: unexpected error"
     )
+
+
+@pytest.mark.usefixtures("fake_search", "mock_edit")
+async def test_update_reloads_sip(user: User, mock_reload: MagicMock) -> None:
+    """A successful caller ID change reloads SIP (F-17)."""
+    await _search(user, "1001")
+    await _update(user, '"New Name" <1001>')
+    await user.should_see("Asterisk reloaded the SIP configuration.")
+    mock_reload.assert_called_once_with(
+        command="sip reload", friendly_name="SIP configuration"
+    )
+
+
+@pytest.mark.usefixtures("fake_search")
+async def test_failed_update_does_not_reload(
+    user: User, monkeypatch: pytest.MonkeyPatch, mock_reload: MagicMock
+) -> None:
+    """A failed caller ID change doesn't reload Asterisk."""
+    for module in _page_modules():
+        monkeypatch.setattr(
+            module,
+            "edit_caller_id",
+            MagicMock(side_effect=AsteriskCliError("line changed")),
+        )
+    await _search(user, "1001")
+    user.find("Enter a Caller ID").type('"New Name" <1001>')
+    user.find("Update Selected").click()
+    await user.should_see(marker="confirm-yes")
+    user.find(marker="confirm-yes").click()
+    await user.should_see("Failed to set caller ID")
+    mock_reload.assert_not_called()

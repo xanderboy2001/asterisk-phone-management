@@ -4,6 +4,7 @@ import contextlib
 import re
 import shutil
 import subprocess
+from dataclasses import dataclass
 
 import pexpect
 
@@ -30,6 +31,26 @@ from asterisk_phone_management.services.search import (
 )
 
 EXPECTED_FIELD_COUNT: int = len(ActiveCall.FIELD_ORDER)
+
+
+@dataclass(frozen=True)
+class AsteriskModule:
+    """An Asterisk module that can be reloaded from the Asterisk CLI.
+
+    Attributes:
+        command: The CLI command that reloads it, e.g. ``sip reload``.
+        name: A Human-readable name for log and UI messages.
+    """
+
+    command: str
+    name: str
+
+
+VOICEMAIL_MODULE = AsteriskModule(
+    "voicemail reload", "voicemail configuration"
+)
+SIP_MODULE = AsteriskModule("sip reload", "SIP configuration")
+DIALPLAN_MODULE = AsteriskModule("dialplan reload", "dialplan")
 
 
 def _asterisk_binary() -> str:
@@ -307,15 +328,9 @@ def reload_asterisk() -> None:
         log.error(msg)
         raise AsteriskServiceError(msg)
 
-    reload_tasks: list[dict[str, str]] = [
-        {"command": "voicemail reload", "name": "voicemail configuration"},
-        {"command": "sip reload", "name": "SIP configuration"},
-        {"command": "dialplan reload", "name": "dialplan"},
-    ]
-
-    for task in reload_tasks:
+    for module in (VOICEMAIL_MODULE, SIP_MODULE, DIALPLAN_MODULE):
         reload_asterisk_module(
-            command=task["command"], friendly_name=task["name"]
+            command=module.command, friendly_name=module.name
         )
 
     log.info("All configurations reloaded successfully.")
