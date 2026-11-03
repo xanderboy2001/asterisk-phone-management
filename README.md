@@ -138,7 +138,7 @@ Commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## Security
 
-Please report vulnerabilities privately through GitHub's **Report a vulnerability** button on the Security tab, not in a public issue.
+See [SECURITY.md](SECURITY.md) for how to report a vulnerability.
 
 ## License
 
