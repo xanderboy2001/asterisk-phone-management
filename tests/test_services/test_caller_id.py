@@ -15,41 +15,95 @@ from asterisk_phone_management.services.caller_id import (
     edit_caller_id,
 )
 
+SIP = Path("sip.conf")
+
+
+def _match(line_number: int, text: str, file_path: Path = SIP) -> ConfigMatch:
+    """Build a ConfigMatch as the search would.
+
+    Args:
+        line_number: 1-based line number.
+        text: The stripped line text.
+        file_path: The file the match came from.
+
+    Returns:
+        The match.
+    """
+    return ConfigMatch(
+        file_path=file_path, line_number=line_number, matched_text=text
+    )
+
 
 def test_apply_caller_id_updates_success() -> None:
-    """Test _apply_caller_id_updates applies changes to correct lines."""
+    """Only the matched line changes."""
     lines = [
         "[general]",
         "[SEP112233445566](phone)",
         'callerid="Old" <1001>',
         "secret=password",
     ]
-    result = _apply_caller_id_updates(lines, [2], '"New" <1001>')
-    assert result[2] == 'callerid="New" <1001>'
-    assert result[0] == "[general]"  # Unchanged
+    result = _apply_caller_id_updates(
+        lines, [_match(3, 'callerid="Old" <1001>')], '"New" <1001>'
+    )
+    assert result == [
+        "[general]",
+        "[SEP112233445566](phone)",
+        'callerid="New" <1001>',
+        "secret=password",
+    ]
 
 
-def test_apply_caller_id_updates_invalid_index() -> None:
-    """Test _apply_caller_id_updates raises on invalid index."""
+def test_apply_caller_id_updates_keeps_indentation() -> None:
+    """An indented callerid line stays indented."""
+    lines = ['    callerid="Old" <1001>']
+    result = _apply_caller_id_updates(
+        lines, [_match(1, 'callerid="Old" <1001>')], '"New" <1001>'
+    )
+    assert result == ['    callerid="New" <1001>']
+
+
+@pytest.mark.parametrize("line_number", [0, 3, 99])
+def test_apply_caller_id_updates_missing_line(line_number: int) -> None:
+    """A line number outside the file is refused."""
     lines = ["[general]", "callerid=test"]
-    with pytest.raises(FileTransactionError, match="out of range"):
-        _apply_caller_id_updates(lines, [5], '"New" <1001>')
+    with pytest.raises(AsteriskCliError, match="no longer exists"):
+        _apply_caller_id_updates(
+            lines, [_match(line_number, "callerid=test")], '"New" <1001>'
+        )
 
 
-def test_apply_caller_id_updates_negative_index() -> None:
-    """Test _apply_caller_id_updates raises on negative index."""
-    lines = ["[general]", "callerid=test"]
-    with pytest.raises(FileTransactionError, match="out of range"):
-        _apply_caller_id_updates(lines, [-1], '"New" <1001>')
+def test_apply_caller_id_updates_line_changed() -> None:
+    """A line that no longer reads as searched is refused (F-18)."""
+    lines = ["[general]", 'callerid="Someone Else" <2002>']
+    with pytest.raises(AsteriskCliError, match="changed since the search"):
+        _apply_caller_id_updates(
+            lines, [_match(2, 'callerid="Old" <1001>')], '"New" <1001>'
+        )
 
 
-def test_apply_caller_id_updates_line_mismatch() -> None:
-    """Test _apply_caller_id_updates raises when line doesn't have callerid."""
+def test_apply_caller_id_updates_not_a_callerid_line() -> None:
+    """A match that isn't a callerid= line is refused."""
     lines = ["[general]", "secret=password"]
-    with pytest.raises(
-        FileTransactionError, match="expected callerid directive"
-    ):
-        _apply_caller_id_updates(lines, [1], '"New" <1001>')
+    with pytest.raises(AsteriskCliError, match="not a callerid= line"):
+        _apply_caller_id_updates(
+            lines, [_match(2, "secret=password")], '"New" <1001>'
+        )
+
+
+def test_apply_caller_id_updates_all_or_nothing() -> None:
+    """If one of several lines changed, none are updated."""
+    lines = ['callerid="A" <1001>', 'callerid="Changed" <1001>']
+    original = list(lines)
+    with pytest.raises(AsteriskCliError):
+        _apply_caller_id_updates(
+            lines,
+            [
+                _match(1, 'callerid="A" <1001>'),
+                _match(2, 'callerid="B" <1001>'),
+            ],
+            '"New" <1001>',
+        )
+    assert lines == original
 
 
 @pytest.mark.usefixtures("mock_asterisk_env")
@@ -71,6 +125,11 @@ def test_edit_caller_id_success(mock_asterisk_env: dict[str, Path]) -> None:
             )
         ],
         '"New" <1001>',
+    )
+
+    assert sip_conf.read_text(encoding="utf-8") == (
+        '[general]\n[SEP112233445566](phone)\ncallerid="New" <1001>\n'
+        "secret=password\n"
     )
 
 
@@ -125,4 +184,40 @@ def test_edit_caller_id_rejects_injection(
     )
     with pytest.raises(AsteriskCliError):
         edit_caller_id([match], payload)
+    assert sip_conf.read_text(encoding="utf-8") == before
+
+
+def test_edit_caller_id_rejects_other_files(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """A match from another file is refused before anything is touched."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    before = sip_conf.read_text(encoding="utf-8")
+    match = _match(
+        2,
+        "exten => 1001,1,Dial(SIP/SEP112233445566,14,t)",
+        mock_asterisk_env["ext_conf"],
+    )
+    with pytest.raises(AsteriskCliError, match=r"only be edited in sip\.conf"):
+        edit_caller_id([match], '"New" <1001>')
+    assert sip_conf.read_text(encoding="utf-8") == before
+    assert list(mock_asterisk_env["backup_dir"].iterdir()) == []
+
+
+def test_edit_caller_id_refuses_stale_line(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """If sip.conf changed after the search, nothing is written (F-18)."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    match = _match(6, 'callerid="John Doe" <1001>', sip_conf)
+    # Someone inserts a line above the match after the search.
+    sip_conf.write_text(
+        "; added later\n" + sip_conf.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    before = sip_conf.read_text(encoding="utf-8")
+
+    with pytest.raises(AsteriskCliError, match="changed since the search"):
+        edit_caller_id([match], '"New" <1001>')
+
     assert sip_conf.read_text(encoding="utf-8") == before
