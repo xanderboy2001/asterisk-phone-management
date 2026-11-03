@@ -22,6 +22,7 @@ from asterisk_phone_management.services.search import (
     search_for_mac_address,
 )
 from asterisk_phone_management.web.utils import theme
+from asterisk_phone_management.web.utils.errors import report_unexpected_error
 from asterisk_phone_management.web.utils.inputs import (
     caller_id_input,
     extension_input,
@@ -42,6 +43,27 @@ _SEARCH_METHODS: dict[str, str] = {
     SEARCH_BY_MAC: "Search by MAC Address",
     SEARCH_BY_CALLER_ID: "Search by Caller ID",
 }
+
+
+def _run_search(search_val: str, method: SearchMethod) -> list[ConfigMatch]:
+    """Run the search service for the chosen method.
+
+    Args:
+        search_val: The validated, stripped search text.
+        method: Search method ("ext", "mac", or "callerid")
+
+    Returns:
+        The matches found, or an empty list for an unknown method.
+    """
+    if method == SEARCH_BY_EXTENSION:
+        return search_for_extension(extension=search_val)
+    if method == SEARCH_BY_MAC:
+        return search_for_mac_address(
+            mac_address=normalize_mac_addr(search_val)
+        )
+    if method == SEARCH_BY_CALLER_ID:
+        return search_for_caller_id(caller_id=search_val)
+    return []
 
 
 def register_page() -> None:
@@ -79,9 +101,6 @@ def register_page() -> None:
                     )
                     return
 
-                response_data: list[ConfigMatch] = []
-                if _method == SEARCH_BY_EXTENSION:
-                    response_data = search_for_extension(extension=search_val)
                 elif _method == SEARCH_BY_MAC:
                     validation_result = validate_mac_addr(search_val)
                     if validation_result is not True:
@@ -91,11 +110,11 @@ def register_page() -> None:
                             textColor="dark",
                         )
                         return
-                    response_data = search_for_mac_address(
-                        mac_address=normalize_mac_addr(search_val)
-                    )
-                elif _method == SEARCH_BY_CALLER_ID:
-                    response_data = search_for_caller_id(caller_id=search_val)
+                try:
+                    response_data = _run_search(search_val, _method)
+                except Exception:  # ruff: ignore[blind-except] - last-resort handler
+                    report_unexpected_error(f"search for {search_val!r}")
+                    return
 
                 if not response_data:
                     with results_container:
@@ -113,7 +132,7 @@ def register_page() -> None:
                             ui.label(match.matched_text).classes(
                                 f"text-sm text-[{DRACULA.foreground}]"
                                 " font-mono overflow-x-auto"
-                                " whitespace-nowrap block max-w-full pb1"
+                                " whitespace-nowrap block max-w-full pb-1"
                             )
 
             def _search_field(

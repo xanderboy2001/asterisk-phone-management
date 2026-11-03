@@ -57,7 +57,10 @@ def test_main_missing_files_exits(
 
 
 @pytest.mark.usefixtures("mock_asterisk_env")
-def test_main_menu_loop_execution(mocker: MockerFixture) -> None:
+def test_main_menu_loop_execution(
+    mocker: MockerFixture, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Every kind of error is handled and the menu keeps running (F-16)."""
     mocker.patch("asterisk_phone_management.main.ensure_required_paths")
     mocker.patch(
         "asterisk_phone_management.main._parse_args",
@@ -82,13 +85,15 @@ def test_main_menu_loop_execution(mocker: MockerFixture) -> None:
         "exit",
     ]
 
-    with pytest.raises(Exception, match="Unknown execution error"):
-        main()
+    main()
 
+    assert mock_select.return_value.ask.call_count == 5
     assert action_normal.call_count == 1
     assert action_keyboard_interrupt.call_count == 1
     assert action_asterisk_error.call_count == 1
     assert action_general_error.call_count == 1
+    assert "menu is still running" in caplog.text
+    assert "Unknown execution error" in caplog.text
 
 
 def test_main_menu_cancelled_none(mocker: MockerFixture) -> None:

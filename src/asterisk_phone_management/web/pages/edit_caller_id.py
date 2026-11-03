@@ -18,6 +18,7 @@ from asterisk_phone_management.schemas.models import ConfigMatch
 from asterisk_phone_management.services.caller_id import edit_caller_id
 from asterisk_phone_management.services.search import search_for_extension
 from asterisk_phone_management.web.utils import theme
+from asterisk_phone_management.web.utils.errors import report_unexpected_error
 from asterisk_phone_management.web.utils.inputs import (
     caller_id_input,
     extension_input,
@@ -109,6 +110,10 @@ async def on_submit(
                 type="negative",
                 multi_line=True,
                 textColor="dark",
+            )
+        except Exception:  # ruff: ignore[blind-except] - last-resort handler
+            report_unexpected_error(
+                f"set the caller ID for extension {extension}"
             )
 
 
