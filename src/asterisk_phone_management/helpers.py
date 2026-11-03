@@ -149,6 +149,15 @@ def backup_config_file(src_config: Path) -> Path:
     return backup_path
 
 
+def _parse_xml(file_path: Path) -> ET.Element:
+    try:
+        return ET.parse(file_path).getroot()
+    except (ET.ParseError, OSError) as e:
+        msg = f"Could not read phone config {file_path.name}: {e}"
+        log.error(msg)
+        raise AsteriskCliError(msg) from e
+
+
 def get_mac_from_ext(matches: list[ConfigMatch]) -> str:
     """Determine the MAC address from a list of extension matches.
 
@@ -175,7 +184,7 @@ def get_mac_from_ext(matches: list[ConfigMatch]) -> str:
             if mac_match:
                 return str(mac_match.group(1).upper())
         elif match.file_path.suffixes == [".cnf", ".xml"]:
-            xml_root = ET.parse(match.file_path).getroot()
+            xml_root = _parse_xml(match.file_path)
             name_element = xml_root.find(".//name")
             name_text = (
                 (name_element.text or "") if name_element is not None else ""
@@ -202,7 +211,7 @@ def get_ext_from_mac(matches: list[ConfigMatch]) -> str:
     """
     for match in matches:
         if match.file_path.suffixes == [".cnf", ".xml"]:
-            xml_root: ET.Element = ET.parse(match.file_path).getroot()
+            xml_root: ET.Element = _parse_xml(match.file_path)
             extension_element: ET.Element | None = xml_root.find(
                 path=".//featureLabel"
             )

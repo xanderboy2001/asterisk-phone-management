@@ -23,6 +23,15 @@ def phone_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(device_actions, "PHONE_SSH_PASS", "test-pass")
 
 
+@pytest.fixture
+def asterisk_installed(mocker: MockerFixture) -> None:
+    """Pretend the ``asterisk`` command is installed."""
+    mocker.patch.object(
+        device_actions, "_asterisk_binary", return_value="/usr/sbin/asterisk"
+    )
+
+
+@pytest.mark.usefixtures("asterisk_installed")
 def test_get_ip_address_success(mocker: MockerFixture) -> None:
     mock_run = mocker.patch("subprocess.run")
     mock_run.return_value.stdout = "Addr->IP : 192.168.1.50:5060\n"
@@ -31,6 +40,7 @@ def test_get_ip_address_success(mocker: MockerFixture) -> None:
     assert ip == "192.168.1.50"
 
 
+@pytest.mark.usefixtures("asterisk_installed")
 def test_get_ip_address_invalid_or_zero(mocker: MockerFixture) -> None:
     mock_run = mocker.patch("subprocess.run")
     mock_run.return_value.stdout = "Addr->IP : 0.0.0.0:5060\n"
@@ -41,6 +51,7 @@ def test_get_ip_address_invalid_or_zero(mocker: MockerFixture) -> None:
         device_actions._get_ip_address("112233445566")
 
 
+@pytest.mark.usefixtures("asterisk_installed")
 def test_get_ip_address_subprocess_failure(mocker: MockerFixture) -> None:
     mock_run = mocker.patch("subprocess.run")
     mock_run.side_effect = subprocess.CalledProcessError(1, "cmd")
@@ -51,6 +62,7 @@ def test_get_ip_address_subprocess_failure(mocker: MockerFixture) -> None:
         device_actions._get_ip_address("112233445566")
 
 
+@pytest.mark.usefixtures("asterisk_installed")
 def test_get_ip_address_no_regex_match(mocker: MockerFixture) -> None:
     mock_run = mocker.patch("subprocess.run")
 
@@ -324,6 +336,7 @@ def test_reload_asterisk_not_running(mocker: MockerFixture) -> None:
         device_actions.reload_asterisk()
 
 
+@pytest.mark.usefixtures("asterisk_installed")
 def test_get_active_calls_parsing(mocker: MockerFixture) -> None:
     raw_output = (
         "SIP/SEP112233445566-00000001!default!1001!1!Up!Dial!SIP/SEP2!1002!Alice!!DOCUMENTATION!120!SIP/SEP2-00000002\n"
@@ -341,6 +354,7 @@ def test_get_active_calls_parsing(mocker: MockerFixture) -> None:
     assert call.duration == "120"
 
 
+@pytest.mark.usefixtures("asterisk_installed")
 def test_get_active_calls_called_process_error(mocker: MockerFixture) -> None:
     mocker.patch(
         "subprocess.run",
@@ -349,6 +363,7 @@ def test_get_active_calls_called_process_error(mocker: MockerFixture) -> None:
     assert device_actions.get_active_calls() == []
 
 
+@pytest.mark.usefixtures("asterisk_installed")
 def test_get_active_calls_file_not_found(mocker: MockerFixture) -> None:
     mocker.patch(
         "subprocess.run",
@@ -357,6 +372,7 @@ def test_get_active_calls_file_not_found(mocker: MockerFixture) -> None:
     assert device_actions.get_active_calls() == []
 
 
+@pytest.mark.usefixtures("asterisk_installed")
 def test_get_active_calls_empty_line(mocker: MockerFixture) -> None:
     raw_output = (
         "SIP/SEP112233445566-00000001!default!1001!1!Up!Dial!SIP/SEP2!1002!Alice!!DOCUMENTATION!120!SIP/SEP2-00000002\n"
@@ -431,3 +447,26 @@ def test_reboot_phone_rejects_invalid_extension(mocker: MockerFixture) -> None:
     with pytest.raises(AsteriskCliError, match="4 digits"):
         device_actions.reboot_phone("1")
     mock_search.assert_not_called()
+
+
+def test_asterisk_binary_found(mocker: MockerFixture) -> None:
+    """The full path from ``shutil.which`` is returned."""
+    mocker.patch.object(
+        device_actions.shutil, "which", return_value="/usr/sbin/asterisk"
+    )
+    assert device_actions._asterisk_binary() == "/usr/sbin/asterisk"
+
+
+def test_get_ip_address_without_asterisk(mocker: MockerFixture) -> None:
+    """A missing asterisk command is reported, not a raw FileNotFoundError."""
+    mocker.patch.object(device_actions.shutil, "which", return_value=None)
+    mock_run = mocker.patch.object(device_actions.subprocess, "run")
+    with pytest.raises(AsteriskCliError, match="'asterisk' command was not"):
+        device_actions._get_ip_address("112233445566")
+    mock_run.assert_not_called()
+
+
+def test_get_active_calls_without_asterisk(mocker: MockerFixture) -> None:
+    """The live calls view shows nothing instead of crashing."""
+    mocker.patch.object(device_actions.shutil, "which", return_value=None)
+    assert device_actions.get_active_calls() == []

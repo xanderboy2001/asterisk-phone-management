@@ -9,6 +9,7 @@ from asterisk_phone_management.core.constants import (
 from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     AsteriskServiceError,
+    FileTransactionError,
 )
 from asterisk_phone_management.core.transactions import ConfigTransaction
 from asterisk_phone_management.helpers import (
@@ -73,8 +74,16 @@ def _enable_forwarding_text(
         raise AsteriskServiceError(msg)
 
     base_text: str = matched_text.removesuffix(disabled_suffix)
-    open_paren_index: int = base_text.index("(")
-    first_comma_index: int = base_text.index(",", open_paren_index)
+    try:
+        open_paren_index: int = base_text.index("(")
+        first_comma_index: int = base_text.index(",", open_paren_index)
+    except ValueError as e:
+        msg = (
+            f"Unexpected dialplan format for {user.name}: extpected "
+            "'Dial(...,...)' in the extensions.conf line."
+        )
+        log.error(msg)
+        raise AsteriskServiceError(msg) from e
 
     return (
         f"{base_text[:first_comma_index]}"
@@ -126,12 +135,21 @@ def _write_config_update(
         new_text: The text to replace it with.
 
     Raises:
-        AsteriskCliError: If the expected text is not found on that line.
+        AsteriskCliError: If the line no longer exists, or doesn't contain
+            the expected text (the file changed since it was searched).
     """
     lines: list[str] = match.file_path.read_text(encoding="utf-8").splitlines(
         keepends=True
     )
     line_index: int = match.line_number - 1
+
+    if not 0 <= line_index < len(lines):
+        msg = (
+            f"Line {match.line_number} no longer exists in "
+            f"{match.file_path}. The file changed; search again."
+        )
+        log.error(msg)
+        raise AsteriskCliError(msg)
 
     if old_text not in lines[line_index]:
         msg = (
@@ -143,7 +161,7 @@ def _write_config_update(
 
     lines[line_index] = lines[line_index].replace(old_text, new_text, 1)
     atomic_write_text(match.file_path, "".join(lines))
-    log.info(f"Updated {match.file_path} at line {match.line_number}.")
+    log.info("Updated %s at line %d.", match.file_path, match.line_number)
 
 
 def toggle_call_forwarding(
@@ -154,6 +172,14 @@ def toggle_call_forwarding(
     Args:
         user: The user whose call forwarding should be toggled.
         action: The action to take. Either 'enable' or 'disable'.
+
+    Raises:
+        AsteriskCliError: If the user's dialplan line can't be found, or
+            the file changed since it was searched.
+        AsteriskServiceError: If forwarding is already in the requested
+            state, or th dialplan line isn't in the expected format.
+        FileTransactionError: If extensions.conf can't be read or written.
+            The file is rolled back before this is raised.
     """
     match = get_call_forwarding_config(user)
     new_text: str = (
@@ -161,5 +187,10 @@ def toggle_call_forwarding(
         if action == "disable"
         else _enable_forwarding_text(match.matched_text, user)
     )
-    with ConfigTransaction([match.file_path]):
-        _write_config_update(match, match.matched_text, new_text)
+    try:
+        with ConfigTransaction([match.file_path]):
+            _write_config_update(match, match.matched_text, new_text)
+    except OSError as e:
+        msg = f"Failed to update {match.file_path}: {e}"
+        log.error(msg)
+        raise FileTransactionError(msg) from e

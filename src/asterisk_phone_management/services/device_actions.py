@@ -32,6 +32,23 @@ from asterisk_phone_management.services.search import (
 EXPECTED_FIELD_COUNT: int = len(ActiveCall.FIELD_ORDER)
 
 
+def _asterisk_binary() -> str:
+    """Return the full path of the ``asterisk`` command.
+
+    Returns:
+        The absolute path to the ``asterisk`` executable.
+
+    Raises:
+        AsteriskCliError: If ``asterisk`` isn't installed or isn't on PATH.
+    """
+    asterisk_path: str | None = shutil.which("asterisk")
+    if asterisk_path is None:
+        msg = "The 'asterisk' command was not found on the system."
+        log.error(msg)
+        raise AsteriskCliError(msg)
+    return asterisk_path
+
+
 def _get_ip_address(mac_address: str) -> str:
     """Get the IP address of a phone based on its MAC address.
 
@@ -42,13 +59,15 @@ def _get_ip_address(mac_address: str) -> str:
         The IP address of the phone if found.
 
     Raises:
+        AsteriskCliError: If the ``asterisk`` command isn't installed.
         DeviceCommunicationError: If the peer's IP address cannot be
             retrieved from Asterisk.
     """
     sep_mac: str = f"{SEP_PREFIX}{mac_address}"
+    asterisk_path = _asterisk_binary()
     try:
         output = subprocess.run(
-            ["asterisk", "-rx", f"sip show peer {sep_mac}"],
+            [asterisk_path, "-rx", f"sip show peer {sep_mac}"],
             capture_output=True,
             text=True,
             check=True,
@@ -259,11 +278,7 @@ def reload_asterisk_module(command: str, friendly_name: str) -> None:
         AsteriskCliError: If the 'asterisk' executable is missing.
         AsteriskServiceError: If the reload command fails.
     """
-    asterisk_path: str | None = shutil.which("asterisk")
-    if asterisk_path is None:
-        msg = "The 'asterisk' command was not found on the system."
-        log.error(msg)
-        raise AsteriskCliError(msg)
+    asterisk_path = _asterisk_binary()
 
     log.info("Reloading %s...", friendly_name)
     try:
@@ -315,12 +330,14 @@ def get_active_calls() -> list[ActiveCall]:
     """
     try:
         result = subprocess.run(
-            ["asterisk", "-rx", "core show channels concise"],
+            [_asterisk_binary(), "-rx", "core show channels concise"],
             capture_output=True,
             text=True,
             check=True,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except (subprocess.CalledProcessError, OSError, AsteriskCliError):
+        # The dashboard keeps polling; it shows "no calls" until Asterisk
+        # is unreachable again.
         return []
 
     calls: list[ActiveCall] = []
