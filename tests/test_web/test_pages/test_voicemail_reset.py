@@ -185,3 +185,20 @@ async def test_voicemail_reset_reload_failure_keeps_success(
     await _confirm_reset(user)
     await user.should_see("Successfully reset voicemail password for 1234.")
     await user.should_see("Saved, but Asterisk couldn't reload")
+
+
+async def test_voicemail_reset_states_pin_policy(
+    user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The dialog and the success message both state the new PIN (F-19)."""
+    mock_reset = MagicMock()
+    monkeypatch.setattr(voicemail_page, "reset_vm_password", mock_reset)
+    await user.open("/voicemail-reset")
+    user.find("Enter an Extension").type("1234")
+    user.find("Submit").click()
+
+    await user.should_see("The new PIN will be 1234, the extension number.")
+    user.find(marker="confirm-yes").click()
+
+    await user.should_see("The new PIN is 1234.")
+    mock_reset.assert_called_once_with(extension="1234", new_pin="1234")
