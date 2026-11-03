@@ -11,7 +11,7 @@ from typing import Self
 from asterisk_phone_management.core.constants import LOCK_FILE, log
 from asterisk_phone_management.core.exceptions import FileTransactionError
 from asterisk_phone_management.helpers import (
-    atomic_write_text,
+    atomic_write_bytes,
     backup_config_file,
 )
 
@@ -152,9 +152,9 @@ class ConfigTransaction:
         for original, backup in self.backups.items():
             if backup.exists():
                 try:
-                    atomic_write_text(
-                        original, backup.read_text(encoding="utf-8")
-                    )
+                    # Bytes, not text: restore the backup exactly, whatever
+                    # its encoding or line endings.
+                    atomic_write_bytes(original, backup.read_bytes())
                     log.info("Rolled back %s", original.name)
                 except OSError as e:
                     log.error(

@@ -43,7 +43,7 @@ def _fail_with_broken_rollback(path: Path, mocker: MockerFixture) -> None:
         # Patch after __enter__ so the backup exists but the rollback fails.
         mocker.patch.object(
             transactions,
-            "atomic_write_text",
+            "atomic_write_bytes",
             side_effect=OSError("Rollback failure mock"),
         )
         err_msg = "Simulated error"
@@ -289,3 +289,21 @@ def test_rollback_restores_without_temp_files(
     assert sip_conf.read_text(encoding="utf-8") == original
     assert sip_conf.stat().st_mode & 0o777 == 0o640
     assert list(sip_conf.parent.glob(".*.tmp")) == []
+
+
+@pytest.mark.parametrize(
+    "original",
+    [b"[general]\r\nport=5060\r\n", b"calf\xe9 latin-1\n"],
+    ids=["crlf", "non-utf8"],
+)
+def test_rollback_is_byte_exact(
+    mock_asterisk_env: dict[str, Path], original: bytes
+) -> None:
+    """Rollback restores the exact bytes, whatever the encoding."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    sip_conf.write_bytes(original)
+
+    with pytest.raises(RuntimeError, match="Simulated error"):
+        _corrupt_then_fail(sip_conf)
+
+    assert sip_conf.read_bytes() == original

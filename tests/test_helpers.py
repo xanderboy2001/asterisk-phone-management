@@ -9,6 +9,7 @@ from asterisk_phone_management import helpers
 from asterisk_phone_management.core.constants import CallForwardingDefinition
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.helpers import (
+    atomic_write_bytes,
     atomic_write_text,
     backup_config_file,
     copy_file_safe,
@@ -419,3 +420,14 @@ def test_atomic_write_text_readers_never_see_partial_file(
 
     assert seen == ["old\n"]
     assert target.read_text(encoding="utf-8") == "new\n"
+
+
+def test_atomic_write_bytes_writes_exact_bytes(tmp_path: Path) -> None:
+    """Bytes are written unchanged, including CRLF and non-UTF-8 data."""
+    target = tmp_path / "sip.conf"
+    target.write_text("old\n", encoding="utf-8")
+
+    atomic_write_bytes(target, b"a\r\n\xe9\n")
+
+    assert target.read_bytes() == b"a\r\n\xe9\n"
+    assert list(tmp_path.glob(".*.tmp")) == []
