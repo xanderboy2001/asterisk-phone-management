@@ -41,8 +41,10 @@ def _fail_with_broken_rollback(path: Path, mocker: MockerFixture) -> None:
     """
     with ConfigTransaction((path,)):
         # Patch after __enter__ so the backup exists but the rollback fails.
-        mocker.patch(
-            "shutil.copyfile", side_effect=OSError("Rollback failure mock")
+        mocker.patch.object(
+            transactions,
+            "atomic_write_text",
+            side_effect=OSError("Rollback failure mock"),
         )
         err_msg = "Simulated error"
         raise RuntimeError(err_msg)
@@ -271,3 +273,19 @@ def test_transaction_release_without_lock_is_harmless(
     transaction = ConfigTransaction((mock_asterisk_env["sip_conf"],))
     transaction._release_lock()
     _assert_lock_free(mock_asterisk_env["sip_conf"])
+
+
+def test_rollback_restores_without_temp_files(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """A rollback restores the original and leaves no temp files behind."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    original = sip_conf.read_text(encoding="utf-8")
+    sip_conf.chmod(0o640)
+
+    with pytest.raises(RuntimeError, match="Simulated error"):
+        _corrupt_then_fail(sip_conf)
+
+    assert sip_conf.read_text(encoding="utf-8") == original
+    assert sip_conf.stat().st_mode & 0o777 == 0o640
+    assert list(sip_conf.parent.glob(".*.tmp")) == []

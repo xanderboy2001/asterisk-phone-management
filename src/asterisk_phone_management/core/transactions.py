@@ -2,7 +2,6 @@
 
 import fcntl
 import os
-import shutil
 import time
 from collections.abc import Iterable
 from pathlib import Path
@@ -11,7 +10,10 @@ from typing import Self
 
 from asterisk_phone_management.core.constants import LOCK_FILE, log
 from asterisk_phone_management.core.exceptions import FileTransactionError
-from asterisk_phone_management.helpers import backup_config_file
+from asterisk_phone_management.helpers import (
+    atomic_write_text,
+    backup_config_file,
+)
 
 # How often to retry while another process holds the lock.
 _LOCK_POLL_SECONDS: float = 0.1
@@ -146,11 +148,13 @@ class ConfigTransaction:
         self._lock_fd = None
 
     def _rollback(self) -> None:
-        """Restore original files from their created backups."""
+        """Restore original files from their backups, atomically."""
         for original, backup in self.backups.items():
             if backup.exists():
                 try:
-                    shutil.copyfile(backup, original)
+                    atomic_write_text(
+                        original, backup.read_text(encoding="utf-8")
+                    )
                     log.info("Rolled back %s", original.name)
                 except OSError as e:
                     log.error(

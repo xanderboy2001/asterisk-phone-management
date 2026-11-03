@@ -17,6 +17,7 @@ from asterisk_phone_management.core.validators import (
     validate_extension,
     validate_vm_password,
 )
+from asterisk_phone_management.helpers import atomic_write_text
 from asterisk_phone_management.services.search import search_for_extension
 
 
@@ -65,7 +66,7 @@ def reset_vm_password(extension: str, new_pin: str) -> None:
                 string=content,
                 flags=re.MULTILINE,
             )
-            VOICEMAIL_CONF.write_text(updated_content, encoding="utf-8")
+            atomic_write_text(VOICEMAIL_CONF, updated_content)
     except OSError as e:
         msg = f"Failed to modify {VOICEMAIL_CONF}: {e}"
         log.error(msg)

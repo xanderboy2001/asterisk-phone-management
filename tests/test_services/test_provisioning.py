@@ -15,6 +15,7 @@ from asterisk_phone_management.schemas.models import Phone, Voicemail
 from asterisk_phone_management.services.provisioning import (
     _cleanup_created_files,
     _deprovision_phone,
+    _patch_file,
     _provision_phone,
     _remove_cnf_xml,
     _replace_mac_in_file,
@@ -605,3 +606,52 @@ def test_deprovision_phone_keeps_longer_extensions(
     assert "exten => 1001," not in ext_text
     assert "10012 = 9999" in vm_text
     assert "1001 = 1234" not in vm_text
+
+
+# --- F-15: every config write is atomic ---
+
+
+def test_patch_file_appends_and_keeps_permissions(tmp_path: Path) -> None:
+    """Appending rewrites the file atomically and keeps its mode."""
+    conf = tmp_path / "sip.conf"
+    conf.write_text("a\n", encoding="utf-8")
+    conf.chmod(0o640)
+
+    _patch_file(conf, "b\n")
+
+    assert conf.read_text(encoding="utf-8") == "a\nb\n"
+    assert conf.stat().st_mode & 0o777 == 0o640
+    assert list(tmp_path.glob(".*.tmp")) == []
+
+
+def test_provision_phone_keeps_config_permissions(
+    mock_asterisk_env: dict[str, Path],
+    sample_phone: Phone,
+    sample_voicemail: Voicemail,
+) -> None:
+    """Registering a phone doesn't change the config files' modes."""
+    confs = [mock_asterisk_env[k] for k in ("sip_conf", "ext_conf", "vm_conf")]
+    for conf in confs:
+        conf.chmod(0o640)
+
+    _provision_phone(sample_phone, sample_voicemail)
+
+    assert [c.stat().st_mode & 0o777 for c in confs] == [0o640] * 3
+
+
+def test_provisioning_never_writes_in_place(
+    mock_asterisk_env: dict[str, Path],
+    sample_phone: Phone,
+    sample_voicemail: Voicemail,
+    mocker: MockerFixture,
+) -> None:
+    """Register, replace, and remove only write through atomic_write_text."""
+    del mock_asterisk_env
+    mocker.patch.object(
+        Path,
+        "write_text",
+        side_effect=AssertionError("use atomic_write_text"),
+    )
+
+    _provision_phone(sample_phone, sample_voicemail)
+    _deprovision_phone(sample_phone.extension, sample_phone.mac_address)

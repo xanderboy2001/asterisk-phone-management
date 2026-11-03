@@ -11,7 +11,10 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskServiceError,
 )
 from asterisk_phone_management.core.transactions import ConfigTransaction
-from asterisk_phone_management.helpers import get_call_forwarding_config
+from asterisk_phone_management.helpers import (
+    atomic_write_text,
+    get_call_forwarding_config,
+)
 from asterisk_phone_management.schemas.models import ConfigMatch
 
 
@@ -139,7 +142,7 @@ def _write_config_update(
         raise AsteriskCliError(msg)
 
     lines[line_index] = lines[line_index].replace(old_text, new_text, 1)
-    match.file_path.write_text("".join(lines), encoding="utf-8")
+    atomic_write_text(match.file_path, "".join(lines))
     log.info(f"Updated {match.file_path} at line {match.line_number}.")
 
 

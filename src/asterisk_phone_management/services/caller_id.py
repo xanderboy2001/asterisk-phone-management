@@ -13,6 +13,7 @@ from asterisk_phone_management.core.validators import (
     ensure_valid,
     validate_caller_id,
 )
+from asterisk_phone_management.helpers import atomic_write_text
 from asterisk_phone_management.schemas.models import ConfigMatch
 
 
@@ -73,7 +74,7 @@ def edit_caller_id(
                 lines, target_indices, new_caller_id
             )
             updated_content = "\n".join(updated_lines) + "\n"
-            SIP_CONF.write_text(updated_content, encoding="utf-8")
+            atomic_write_text(SIP_CONF, updated_content)
     except OSError as e:
         msg = f"Failed to modify {SIP_CONF}: {e}"
         log.error(msg)
