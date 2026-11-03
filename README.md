@@ -110,6 +110,12 @@ After a change in the web UI is saved, the affected Asterisk module is reloaded 
 
 Changes made from the CLI still need **Reload Asterisk** from the menu, so you can make several changes and reload once.
 
+## Voicemail PIN resets
+
+A reset from the web UI always sets the PIN to the mailbox's extension number. For example, resetting extension 1234 sets its PIN to `1234`. This is deliberate: the help desk can tell the user their temporary PIN without anyone choosing or reading out a new one. The confirmation dialog and the success message both state the new PIN.
+
+Because an extension-number PIN is easy to guess, tell the user to change it the next time they check voicemail. The CLI's **Reset Voicemail Password** offers the extension number as the default but lets the operator type a different PIN.
+
 ## Backups
 
 Before every change, each affected config file is copied to a `backup/` folder next to it (for example, `/etc/asterisk/backup/`). If the change fails, the originals are restored automatically. Old backups aren't removed, so prune the folder periodically.

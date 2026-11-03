@@ -43,6 +43,10 @@ async def on_submit(extension: str | None) -> None:
             "Are you sure you want to reset the voicemail "
             f"password for {extension}?"
         )
+        ui.label(
+            f"The new PIN will be {extension}, the extension number. "
+            "Ask the user to change it the next time they check voicemail."
+        ).mark("pin-policy")
         with ui.row().classes("w-full justify-end"):
             ui.button(
                 "No", on_click=lambda: dialog.submit(result=False)
@@ -64,9 +68,13 @@ async def on_submit(extension: str | None) -> None:
         ui.notify(
             f"Resetting voicemail password for {extension}...", type="info"
         )
+        # Policy: a web reset always sets the PIN to the extension number,
+        # so the help desk can tell the user what it is. The user is told
+        # to change it. See "Voicemail PIN resets" in the README.
         reset_vm_password(extension=extension, new_pin=extension)
         ui.notify(
-            f"Successfully reset voicemail password for {extension}.",
+            f"Successfully reset voicemail password for {extension}. "
+            f"The new PIN is {extension}.",
             type="positive",
         )
     except (AsteriskCliError, FileTransactionError) as e:
