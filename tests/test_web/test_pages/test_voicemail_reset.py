@@ -97,3 +97,23 @@ async def test_voicemail_reset_invalid_extension_is_rejected(
     await user.should_see("Extension must be 4 digits.")
     await user.should_not_see(marker="confirm-yes")
     mock_service.assert_not_called()
+
+
+@pytest.mark.usefixtures("expect_error_log")
+async def test_voicemail_reset_unexpected_error_is_reported(
+    user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unexpected error shows a generic message, not a silent failure."""
+    monkeypatch.setattr(
+        voicemail_page,
+        "reset_vm_password",
+        MagicMock(side_effect=RuntimeError("bug")),
+    )
+    await user.open("/voicemail-reset")
+    user.find("Enter an Extension").type("1234")
+    user.find("Submit").click()
+    await user.should_see(marker="confirm-yes")
+    user.find(marker="confirm-yes").click()
+    await user.should_see(
+        "Couldn't reset the voicemail password for 1234: unexpected error"
+    )

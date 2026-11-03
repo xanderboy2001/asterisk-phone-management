@@ -164,3 +164,19 @@ async def test_search_keydown_triggers_search(
     input_field.type("1001")
     input_field.trigger("keydown.enter")
     await user.should_see("sip.conf:5")
+
+
+@pytest.mark.usefixtures("expect_error_log")
+async def test_search_unexpected_error_is_reported(
+    user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failing search shows a generic message instead of nothing."""
+    monkeypatch.setattr(
+        search_page,
+        "search_for_extension",
+        MagicMock(side_effect=PermissionError("sip.conf")),
+    )
+    await user.open("/search")
+    user.find("Enter an Extension").type("1234")
+    user.find(ui.button).click()
+    await user.should_see("Couldn't search for '1234': unexpected error")

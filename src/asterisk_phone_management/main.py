@@ -187,4 +187,6 @@ def main() -> None:
             log.warning("Operation cancelled by user.")
         except AsteriskCliError as err:
             log.error("Operation failed: %s", err)
+        except Exception:  # ruff: ignore[blind-except] - top-level safety net
+            log.exception("Unexpected error. The menu is still running.")
         console.print()

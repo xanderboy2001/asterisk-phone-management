@@ -93,7 +93,7 @@ async def test_reboot_generic_cli_error(
     await user.should_see("Are you sure you want to reboot extension 1234?")
     with user.scope(ui.dialog):
         user.find(marker="confirm-yes").click()
-    await user.should_see("An unexpected error occurred: boom")
+    await user.should_see("Failed to reboot 1234: boom")
 
 
 async def test_reboot_phone_invalid_extension_is_rejected(
@@ -108,3 +108,20 @@ async def test_reboot_phone_invalid_extension_is_rejected(
     await user.should_see("Extension must be 4 digits.")
     await user.should_not_see(marker="confirm-yes")
     mock_service.assert_not_called()
+
+
+@pytest.mark.usefixtures("expect_error_log")
+async def test_reboot_unexpected_error_is_reported(
+    user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unexpected error shows a generic message, not a silent failure."""
+    monkeypatch.setattr(
+        reboot_page, "reboot_phone", MagicMock(side_effect=RuntimeError("bug"))
+    )
+    await user.open("/reboot-phone")
+    user.find("Enter an Extension").type("1234")
+    user.find("Submit").click()
+    await user.should_see("Are you sure you want to reboot extension 1234?")
+    with user.scope(ui.dialog):
+        user.find(marker="confirm-yes").click()
+    await user.should_see("Couldn't reboot 1234: unexpected error")

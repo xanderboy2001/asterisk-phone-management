@@ -9,6 +9,7 @@ from asterisk_phone_management.core.exceptions import (
 from asterisk_phone_management.core.validators import validate_extension
 from asterisk_phone_management.services.device_actions import reboot_phone
 from asterisk_phone_management.web.utils import theme
+from asterisk_phone_management.web.utils.errors import report_unexpected_error
 from asterisk_phone_management.web.utils.inputs import extension_input
 from asterisk_phone_management.web.utils.styles import (
     BUTTON_CLASSES,
@@ -72,10 +73,13 @@ async def on_submit(extension: str | None) -> None:
             )
         except AsteriskCliError as e:
             ui.notify(
-                f"An unexpected error occurred: {e!s}",
+                f"Failed to reboot {extension}: {e!s}",
                 type="negative",
+                multi_line=True,
                 textColor="dark",
             )
+        except Exception:  # ruff: ignore[blind-except] - last-resort handler
+            report_unexpected_error(f"reboot {extension}")
 
 
 def register_page() -> None:

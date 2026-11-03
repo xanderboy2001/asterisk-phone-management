@@ -213,3 +213,24 @@ async def test_users_do_not_share_results(
     await alice.should_see("sip.conf:6")
     await _update(alice, '"New Name" <1001>')
     mock_edit.assert_called_once_with(MATCHES["1001"], '"New Name" <1001>')
+
+
+@pytest.mark.usefixtures("fake_search", "expect_error_log")
+async def test_unexpected_error_is_reported(
+    user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unexpected error while saving shows a generic message."""
+    for module in _page_modules():
+        monkeypatch.setattr(
+            module,
+            "edit_caller_id",
+            MagicMock(side_effect=RuntimeError("bug")),
+        )
+    await _search(user, "1001")
+    user.find("Enter a Caller ID").type('"New Name" <1001>')
+    user.find("Update Selected").click()
+    await user.should_see(marker="confirm-yes")
+    user.find(marker="confirm-yes").click()
+    await user.should_see(
+        "Couldn't set the caller ID for extension 1001: unexpected error"
+    )
