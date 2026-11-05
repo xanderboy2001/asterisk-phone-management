@@ -1,6 +1,7 @@
 """Select and edit configuration files using an interactive menu."""
 
 import os
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -21,24 +22,47 @@ from asterisk_phone_management.core.exceptions import (
 )
 from asterisk_phone_management.core.transactions import ConfigTransaction
 
+# Tried in order after $EDITOR.
+_FALLBACK_EDITORS: tuple[str, ...] = ("nvim", "vim", "nano")
 
-def get_editor() -> str | None:
-    """Determine the user's preferred editor.
 
-    Checks environment variables and common editor names.
+def _editor_argv(command: str) -> list[str] | None:
+    """Split an editor command line and check the program is installed.
+
+    Args:
+        command: An editor command, which may include arguments,
+        e.g. ``code --wait`` or ``"/opt/My Editor/bin/ed" -w``.
 
     Returns:
-        The name of the selected editor or None if no valid editor is found.
+        The command split into arguments, or None if it is empty, can't
+        be parsed, or its program isn't installed.
     """
-    candidates = [os.getenv("EDITOR"), "nvim", "vim", "nano"]
-    return next(
-        (
-            cmd
-            for cmd in candidates
-            if cmd is not None and shutil.which(cmd) is not None
-        ),
-        None,
-    )
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        log.warning("Ignoring editor %r: it can't be parsed.", command)
+        return None
+    if not argv or shutil.which(argv[0]) is None:
+        return None
+    return argv
+
+
+def get_editor() -> list[str] | None:
+    """Determine the user's preferred editor.
+
+    Uses ``$EDITOR`` if it names an installed program, otherwise the
+    first installed editor from nvim, vim, and nano.
+
+    Returns:
+        The editor command split into arguments, e.g. ``["code", "--wait"]``,
+        or None if no usable editor is found.
+    """
+    candidates = [os.getenv("EDITOR", ""), *_FALLBACK_EDITORS]
+    for candidate in candidates:
+        argv = _editor_argv(candidate)
+        if argv is not None:
+            return argv
+    return None
 
 
 def edit_files() -> None:
@@ -75,15 +99,15 @@ def edit_files() -> None:
         ),
         Path,
     )
-    editor = get_editor()
-    if editor is None:
+    editor_argv = get_editor()
+    if editor_argv is None:
         msg = "No valid editor found!"
-        log.error("No valid editor found!")
+        log.error(msg)
         raise AsteriskCliError(msg)
 
     try:
         with ConfigTransaction((selected_file,)):
-            subprocess.run([editor, str(selected_file)], check=True)
+            subprocess.run([*editor_argv, str(selected_file)], check=True)
     except (subprocess.CalledProcessError, OSError) as e:
         msg = f"Editor session for {selected_file.name} failed: {e}"
         log.error(msg)
