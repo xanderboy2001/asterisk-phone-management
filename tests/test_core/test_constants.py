@@ -1,4 +1,4 @@
-"""Unit tests for the clal forwarding roseter loader."""
+"""Unit tests for the call forwarding roster loader."""
 
 from pathlib import Path
 

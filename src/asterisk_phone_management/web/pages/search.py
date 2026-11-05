@@ -37,7 +37,7 @@ from asterisk_phone_management.web.utils.styles import (
     RESULTS_CONTAINER_CLASSES,
 )
 
-"""Mapping of search method identifiers to display labels."""
+# Mapping of search method identifiers to display labels.
 _SEARCH_METHODS: dict[str, str] = {
     SEARCH_BY_EXTENSION: "Search by Extension",
     SEARCH_BY_MAC: "Search by MAC Address",

@@ -146,7 +146,6 @@ def search_caller_id(
         List of Pydantic models containing the search results.
 
     Raises:
-        HTTPException: Raised with 400 status code if validation fails.
         HTTPException: Raised with 404 status code if no matches are found.
     """
     matches: list[ConfigMatch] = search_for_caller_id(caller_id)

@@ -52,7 +52,7 @@ def voicemail_line_re(extension: str) -> re.Pattern[str]:
     return re.compile(rf"^\s*{re.escape(extension)}\s*=")
 
 
-"""Type alias for callable rules to match lines during config file scanning."""
+# Type alias for callable rules to match lines during config file scanning.
 MatchRule = Callable[[str, str], bool]
 
 
