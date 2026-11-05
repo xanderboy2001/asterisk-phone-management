@@ -187,6 +187,8 @@ git tag -a v0.2.0 -m "Release 0.2.0"
 git push origin v0.2.0
 ```
 
+Versions follow [Semantic Versioning](https://semver.org): plain `MAJOR.MINOR.PATCH`, one step after the latest release. A pre-commit hook and CI reject any other version, and the Release workflow rejects a tag that doesn't bump it.
+
 ## Security
 
 See [SECURITY.md](SECURITY.md) for how to report a vulnerability.

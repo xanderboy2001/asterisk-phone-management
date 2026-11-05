@@ -44,3 +44,11 @@ repos:
     rev: v0.0.95
     hooks:
       - id: ty
+  - repo: local
+    hooks:
+      - id: check-version
+        name: version follows semver.org
+        entry: python scripts/check_version.py
+        language: python
+        files: ^pyproject\.toml$
+        pass_filenames: false
