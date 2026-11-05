@@ -1,6 +1,7 @@
 """Unit tests for phone provisioning, deprovisioning, and replacement."""
 
 import logging
+import re
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,7 @@ from asterisk_phone_management.core.exceptions import (
     FileTransactionError,
 )
 from asterisk_phone_management.schemas.models import Phone, Voicemail
+from asterisk_phone_management.services import provisioning
 from asterisk_phone_management.services.provisioning import (
     _cleanup_created_files,
     _deprovision_phone,
@@ -19,6 +21,7 @@ from asterisk_phone_management.services.provisioning import (
     _provision_phone,
     _remove_cnf_xml,
     _replace_mac_in_file,
+    _set_sip_secret,
     register_phone,
     remove_phone,
     replace_phone,
@@ -655,3 +658,303 @@ def test_provisioning_never_writes_in_place(
 
     _provision_phone(sample_phone, sample_voicemail)
     _deprovision_phone(sample_phone.extension, sample_phone.mac_address)
+
+
+# --- F-04: SIP secrets are random, never SEP<MAC> ---
+
+
+def _secret_for(sip_text: str, mac: str) -> str:
+    """Return the secret= value from one phone's sip.conf section.
+
+    Args:
+        sip_text: The contents of sip.conf.
+        mac: The phone's MAC address.
+
+    Returns:
+        The secret in that phone's section.
+    """
+    section = sip_text.split(f"[SEP{mac}]", 1)[1].split("\n[", 1)[0]
+    match = re.search(r"^secret=(.*)$", section, flags=re.MULTILINE)
+    assert match is not None
+    return str(match.group(1))
+
+
+def _xml_secret(xml_path: Path) -> str:
+    """Return the <authPassword> value from a phone's .cnf.xml.
+
+    Args:
+        xml_path: The phone's .cnf.xml file.
+
+    Returns:
+        The password in the file.
+    """
+    match = re.search(
+        r"<authPassword>(.*?)</authPassword>",
+        xml_path.read_text(encoding="utf-8"),
+    )
+    assert match is not None
+    return str(match.group(1))
+
+
+def test_provision_phone_uses_random_secret(
+    mock_asterisk_env: dict[str, Path], sample_phone: Phone
+) -> None:
+    """sip.conf and the .cnf.xml get the same random, non-MAC secret."""
+    _provision_phone(sample_phone, None)
+
+    sip = mock_asterisk_env["sip_conf"].read_text(encoding="utf-8")
+    secret = _secret_for(sip, sample_phone.mac_address)
+    xml = (
+        mock_asterisk_env["tftp_dir"]
+        / f"SEP{sample_phone.mac_address}.cnf.xml"
+    )
+
+    assert sample_phone.mac_address not in secret
+    assert re.fullmatch(r"[A-Za-z0-9_-]{24}", secret)
+    assert _xml_secret(xml) == secret
+    assert f"authname=SEP{sample_phone.mac_address}" in sip
+
+
+def test_provisioned_phones_get_different_secrets(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """Two phones never share a secret."""
+    first = Phone(extension="2001", mac_address="AAAAAAAAAAAA", caller_id="")
+    second = Phone(extension="2002", mac_address="BBBBBBBBBBBB", caller_id="")
+
+    _provision_phone(first, None)
+    _provision_phone(second, None)
+
+    sip = mock_asterisk_env["sip_conf"].read_text(encoding="utf-8")
+    assert _secret_for(sip, first.mac_address) != _secret_for(
+        sip, second.mac_address
+    )
+
+
+def test_provision_phone_does_not_log_secret_value(
+    mock_asterisk_env: dict[str, Path],
+    sample_phone: Phone,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The generated secret never appears in the log."""
+    with caplog.at_level(logging.DEBUG):
+        _provision_phone(sample_phone, None)
+
+    sip = mock_asterisk_env["sip_conf"].read_text(encoding="utf-8")
+    assert _secret_for(sip, sample_phone.mac_address) not in caplog.text
+
+
+@pytest.mark.parametrize("template", ["missing", "no-placeholder"])
+def test_provision_phone_needs_secret_placeholder(
+    mock_asterisk_env: dict[str, Path], sample_phone: Phone, template: str
+) -> None:
+    """Without --SIPSECRET-- in the template, nothing is provisioned."""
+    xml_template = mock_asterisk_env["xml_template"]
+    if template == "missing":
+        xml_template.unlink()
+    else:
+        xml_template.write_text(
+            "<device><name>--SEPMAC--</name></device>\n", encoding="utf-8"
+        )
+    before = _snapshot(mock_asterisk_env)
+
+    with pytest.raises(AsteriskServiceError, match=r"template|--SIPSECRET--"):
+        _provision_phone(sample_phone, None)
+
+    assert _snapshot(mock_asterisk_env) == before
+    new_xml = (
+        mock_asterisk_env["tftp_dir"]
+        / f"SEP{sample_phone.mac_address}.cnf.xml"
+    )
+    assert not new_xml.exists()
+
+
+def test_replace_phone_issues_new_secret(
+    mock_asterisk_env: dict[str, Path], mocker: MockerFixture
+) -> None:
+    """A replaced phone drops its SEP<MAC> secret for a random one."""
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
+
+    replace_phone("ext", "1001")
+
+    sip = mock_asterisk_env["sip_conf"].read_text(encoding="utf-8")
+    secret = _secret_for(sip, NEW_MAC)
+    assert not secret.startswith("SEP")
+    assert _xml_secret(_new_xml(mock_asterisk_env)) == secret
+
+
+def test_replace_phone_without_secret_line_rolls_back(
+    mock_asterisk_env: dict[str, Path], mocker: MockerFixture
+) -> None:
+    """If the section has no secret= line, nothing changes."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    sip_conf.write_text(
+        "\n".join(
+            line
+            for line in sip_conf.read_text(encoding="utf-8").splitlines()
+            if not line.startswith("secret=")
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    before = _snapshot(mock_asterisk_env)
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
+
+    with pytest.raises(AsteriskServiceError, match="found 0"):
+        replace_phone("ext", "1001")
+
+    _assert_untouched(mock_asterisk_env, before)
+
+
+def test_replace_phone_needs_secret_placeholder(
+    mock_asterisk_env: dict[str, Path], mocker: MockerFixture
+) -> None:
+    """An old template without --SIPSECRET-- leaves the old phone alone."""
+    mock_asterisk_env["xml_template"].write_text(
+        "<device><name>--SEPMAC--</name></device>\n", encoding="utf-8"
+    )
+    before = _snapshot(mock_asterisk_env)
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
+
+    with pytest.raises(AsteriskServiceError, match="--SIPSECRET--"):
+        replace_phone("ext", "1001")
+
+    _assert_untouched(mock_asterisk_env, before)
+
+
+def test_set_sip_secret_changes_only_target_section(tmp_path: Path) -> None:
+    """Other phones, indentation, and trailing comments are kept."""
+    sip_conf = tmp_path / "sip.conf"
+    sip_conf.write_text(
+        "[general]\n"
+        "secret=general\n"
+        "[SEP112233445566](phone)\n"
+        "  secret = old ; keep me\n"
+        "callerid=x\n"
+        "[SEPAABBCCDDEEFF](phone)\n"
+        "secret=other\n",
+        encoding="utf-8",
+    )
+
+    _set_sip_secret(sip_conf, "112233445566", "NEW")
+
+    assert sip_conf.read_text(encoding="utf-8") == (
+        "[general]\n"
+        "secret=general\n"
+        "[SEP112233445566](phone)\n"
+        "  secret = NEW; keep me\n"
+        "callerid=x\n"
+        "[SEPAABBCCDDEEFF](phone)\n"
+        "secret=other\n"
+    )
+
+
+def test_set_sip_secret_matches_lowercase_section(tmp_path: Path) -> None:
+    """A section header written in lowercase is still found."""
+    sip_conf = tmp_path / "sip.conf"
+    sip_conf.write_text("[sep112233445566](phone)\nSECRET=>old\n", "utf-8")
+
+    _set_sip_secret(sip_conf, "112233445566", "NEW")
+
+    assert sip_conf.read_text(encoding="utf-8").endswith("SECRET=>NEW\n")
+
+
+def test_set_sip_secret_refuses_two_secret_lines(tmp_path: Path) -> None:
+    """Two secret= lines in one section is ambiguous, so nothing changes."""
+    sip_conf = tmp_path / "sip.conf"
+    original = "[SEP112233445566](phone)\nsecret=a\nsecret=b\n"
+    sip_conf.write_text(original, encoding="utf-8")
+
+    with pytest.raises(AsteriskCliError, match="found 2"):
+        _set_sip_secret(sip_conf, "112233445566", "NEW")
+
+    assert sip_conf.read_text(encoding="utf-8") == original
+
+
+LEGACY_TEMPLATE = (
+    "<device><name>--SEPMAC--</name>"
+    "<featureLabel>--EXTENNUMBER--</featureLabel>"
+    "<authPassword>--SEPMAC--</authPassword></device>\n"
+)
+
+
+@pytest.fixture
+def legacy_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Turn on the legacy SEP<MAC> secret mode."""
+    monkeypatch.setattr(provisioning, "SIP_SECRET_MODE", "mac")
+
+
+@pytest.mark.usefixtures("legacy_secrets")
+def test_legacy_mode_uses_mac_secret(
+    mock_asterisk_env: dict[str, Path],
+    sample_phone: Phone,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Legacy mode writes SEP<MAC> and works with the old template."""
+    mock_asterisk_env["xml_template"].write_text(LEGACY_TEMPLATE, "utf-8")
+    mac = sample_phone.mac_address
+
+    _provision_phone(sample_phone, None)
+
+    sip = mock_asterisk_env["sip_conf"].read_text("utf-8")
+    xml = mock_asterisk_env["tftp_dir"] / f"SEP{mac}.cnf.xml"
+    assert _secret_for(sip, mac) == f"SEP{mac}"
+    assert _xml_secret(xml) == f"SEP{mac}"
+    assert "Legacy SIP secret mode is on" in caplog.text
+
+
+@pytest.mark.usefixtures("legacy_secrets")
+def test_legacy_mode_fills_new_placeholder(
+    mock_asterisk_env: dict[str, Path], sample_phone: Phone
+) -> None:
+    """With the new template, legacy mode puts SEP<MAC> in --SIPSECRET--."""
+    mac = sample_phone.mac_address
+
+    _provision_phone(sample_phone, None)
+
+    xml = mock_asterisk_env["tftp_dir"] / f"SEP{mac}.cnf.xml"
+    assert _xml_secret(xml) == f"SEP{mac}"
+
+
+@pytest.mark.usefixtures("legacy_secrets")
+def test_legacy_mode_replace_keeps_old_behaviour(
+    mock_asterisk_env: dict[str, Path], mocker: MockerFixture
+) -> None:
+    """Replacing in legacy mode gives SEP<new MAC>, as before F-04."""
+    mock_asterisk_env["xml_template"].write_text(LEGACY_TEMPLATE, "utf-8")
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
+
+    replace_phone("ext", "1001")
+
+    sip = mock_asterisk_env["sip_conf"].read_text(encoding="utf-8")
+    assert _secret_for(sip, NEW_MAC) == f"SEP{NEW_MAC}"
+    assert _xml_secret(_new_xml(mock_asterisk_env)) == f"SEP{NEW_MAC}"
+
+
+@pytest.mark.parametrize("mode", ["MAC", " mac ", "Random"])
+def test_secret_mode_ignores_case_and_spaces(
+    monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """The setting is trimmed and case-insensitive."""
+    monkeypatch.setattr(provisioning, "SIP_SECRET_MODE", mode)
+    assert provisioning._secret_mode() == mode.strip().lower()
+
+
+def test_invalid_secret_mode_changes_nothing(
+    mock_asterisk_env: dict[str, Path],
+    sample_phone: Phone,
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A typo in the setting stops register and replace before any write."""
+    monkeypatch.setattr(provisioning, "SIP_SECRET_MODE", "macc")
+    before = _snapshot(mock_asterisk_env)
+
+    with pytest.raises(AsteriskServiceError, match="'random' or 'mac'"):
+        _provision_phone(sample_phone, None)
+    assert _snapshot(mock_asterisk_env) == before
+
+    mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
+    with pytest.raises(AsteriskCliError, match="'random' or 'mac'"):
+        replace_phone("ext", "1001")
+    _assert_untouched(mock_asterisk_env, before)

@@ -2,8 +2,10 @@
 
 import dataclasses
 import re
+import secrets
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Literal
 
 import questionary
 
@@ -16,6 +18,7 @@ from asterisk_phone_management.core.constants import (
     SEARCH_BY_MAC,
     SEP_PREFIX,
     SIP_CONF,
+    SIP_SECRET_MODE,
     TFTPBOOT,
     VOICEMAIL_CONF,
     XML_CONFIG_EXTENSION,
@@ -55,6 +58,133 @@ from asterisk_phone_management.services.search import (
     search_for_mac_address,
     voicemail_line_re,
 )
+
+# Template placeholder for the phone's SIP password. Put it in the line's
+# <authPassword> element of SEP0000000.cnf.xml.
+SECRET_PLACEHOLDER: str = "--SIPSECRET--"
+
+# 18 random bytes = 24 URL-safe characters (144 bits). Only letters,
+# digits, "-" and "_", so the value is safe in sip.conf and in XML.
+_SECRET_BYTES: int = 18
+
+# A sip.conf "secret=" line: the key, the value, then any trailing comment.
+_SECRET_LINE_RE = re.compile(
+    r"^(?P<key>\s*secret\s*=>?\s*)(?P<value>[^;\r\n]*)(?P<rest>.*)$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+SecretMode = Literal["random", "mac"]
+
+
+def _secret_mode() -> SecretMode:
+    """Read which SIP password scheme to use for new phones.
+
+    Returns:
+        ``"random"`` or ``"mac"``.
+
+    Raises:
+        AsteriskCliError: If ASTERISK_CLI_SIP_SECRET_MODE has any other value.
+    """
+    mode = SIP_SECRET_MODE.strip().lower()
+    if mode == "random":
+        return "random"
+    if mode == "mac":
+        return "mac"
+    msg = (
+        "ASTERISK_CLI_SIP_SECRET_MODE must be 'random' or 'mac', "
+        f"not {SIP_SECRET_MODE!r}."
+    )
+    log.error(msg)
+    raise AsteriskCliError(msg)
+
+
+def _sip_secret_for(mac_address: str) -> str:
+    """Return the SIP password for a new or replaced phone.
+
+    Args:
+        mac_address: The phone's normalized MAC address.
+
+    Returns:
+        A random secret, or ``SEP<MAC>`` in legacy ``mac`` mode.
+
+    Raises:
+        AsteriskCliError: If the secret mode setting is invalid.
+    """
+    if _secret_mode() == "mac":
+        log.warning(
+            "Legacy SIP secret mode is on (ASTERISK_CLI_SIP_SECRET_MODE=mac): "
+            "the new password is derived from the MAC address and is easy "
+            "to guess."
+        )
+        return f"{SEP_PREFIX}{mac_address}"
+    return secrets.token_urlsafe(_SECRET_BYTES)
+
+
+def _check_template() -> None:
+    """Make sure the .cnf.xml template can carry the SIP password.
+
+    Without the placeholder, a new phone's config would hold a different
+    password from sip.conf and the phone could not register.
+
+    Raises:
+        AsteriskCliError: If the template can't be read or has no
+            ``--SIPSECRET--`` placeholder.
+    """
+    try:
+        template = XML_TEMPLATE.read_text(encoding="utf-8")
+    except OSError as e:
+        msg = f"Cannot read phone template {XML_TEMPLATE}: {e}"
+        log.error(msg)
+        raise AsteriskCliError(msg) from e
+    if SECRET_PLACEHOLDER not in template:
+        msg = (
+            f"{XML_TEMPLATE.name} has no {SECRET_PLACEHOLDER} placeholder. "
+            "Put it in the line's <authPassword> element so phones get "
+            "their SIP password."
+        )
+        log.error(msg)
+        raise AsteriskCliError(msg)
+
+
+def _set_sip_secret(sip_conf: Path, mac_address: str, secret: str) -> None:
+    """Replace the ``secret=`` value in one phone's sip.conf section.
+
+    Indentation and any trailing comment on the line are kept. Every other
+    line, including other phones' secrets, is left alone.
+
+    Args:
+        sip_conf: Path to sip.conf.
+        mac_address: MAC address whose ``[SEP<MAC>]`` section to update.
+        secret: The new SIP password.
+
+    Raises:
+        AsteriskCliError: If the section doesn't have exactly one
+            ``secret=`` line.
+    """
+    lines = sip_conf.read_text(encoding="utf-8").splitlines(keepends=True)
+    target_header = f"[{SEP_PREFIX}{mac_address}]".upper()
+    in_section = False
+    found = 0
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("["):
+            in_section = stripped.upper().startswith(target_header)
+            continue
+        match = _SECRET_LINE_RE.match(line) if in_section else None
+        if match is None:
+            continue
+        found += 1
+        lines[index] = f"{match['key']}{secret}{match['rest']}"
+    if found != 1:
+        msg = (
+            f"Expected one secret= line in the {target_header} section of "
+            f"{sip_conf.name}, found {found}."
+        )
+        log.error(msg)
+        raise AsteriskCliError(msg)
+    atomic_write_text(sip_conf, "".join(lines))
+    # The secret itself is never logged.
+    log.debug("Set a new SIP secret for %s", target_header)
 
 
 def _patch_cnf_xml(file_path: Path, placeholder: str, new_value: str) -> None:
@@ -221,13 +351,20 @@ def _write_provisioning_files(
     cnf_path = TFTPBOOT / (
         f"{SEP_PREFIX}{phone.mac_address}{XML_CONFIG_EXTENSION}"
     )
-    _generate_cnf_xml(extension=phone.extension, mac_address=phone.mac_address)
+    secret = _sip_secret_for(phone.mac_address)
+    # Recorded before creating the file, so a partly written file is
+    # removed too.
     created_files.append(cnf_path)
+    _generate_cnf_xml(
+        extension=phone.extension,
+        mac_address=phone.mac_address,
+        secret=secret,
+    )
 
     sip_content: str = (
         f"\n[{SEP_PREFIX}{phone.mac_address}](phone)\n"
         f"authname={SEP_PREFIX}{phone.mac_address}\n"
-        f"secret={SEP_PREFIX}{phone.mac_address}\n"
+        f"secret={secret}\n"
         f"callerid={phone.caller_id}\n"
     )
 
@@ -306,13 +443,21 @@ def _replace_mac_in_file(file_path: Path, old_mac: str, new_mac: str) -> None:
     log.info("Updated %s", file_path.name)
 
 
-def _generate_cnf_xml(extension: str, mac_address: str) -> None:
+def _generate_cnf_xml(extension: str, mac_address: str, secret: str) -> None:
     """Create a new .cnf.xml file from the template with values patched in.
 
     Args:
         extension: The extension of the new phone.
         mac_address: The MAC address of the new phone.
+        secret: The phone's SIP password, written in place of
+            ``--SIPSECRET--``.
+
+    Raises:
+        AsteriskCliError: If the template can't be read or copied, or
+            (in random mode) has no ``--SIPSECRET--`` placeholder.
     """
+    if _secret_mode() == "random":
+        _check_template()
     new_cnf_xml: Path = TFTPBOOT / (
         f"{SEP_PREFIX}{mac_address}{XML_CONFIG_EXTENSION}"
     )
@@ -340,6 +485,14 @@ def _generate_cnf_xml(extension: str, mac_address: str) -> None:
         mac_address,
         new_cnf_xml,
     )
+
+    _patch_cnf_xml(
+        file_path=new_cnf_xml,
+        placeholder=SECRET_PLACEHOLDER,
+        new_value=secret,
+    )
+    # The secret itself is never logged.
+    log.debug("Patched SIP secret into new .cnf.xml file '%s'.", new_cnf_xml)
 
     log.info("Successfully created and patched '%s'", new_cnf_xml)
 
@@ -487,6 +640,9 @@ def replace_phone(search_method: str, search_key: str) -> None:
     are updated before the old phone's ``.cnf.xml`` is deleted, so a
     failure at any point leaves the old phone working.
 
+    The phone gets a new SIP secret: random by default, or ``SEP<MAC>`` in
+    legacy ``mac`` mode.
+
     Args:
         search_method: Method to search ('ext' or 'mac').
         search_key: Search string value.
@@ -494,7 +650,7 @@ def replace_phone(search_method: str, search_key: str) -> None:
     Raises:
         AsteriskCliError: If no valid search option was selected, the old
             phone can't be found, or the new MAC address is the same as
-            the current one.
+            the current one or ASTERISK_CLI_SIP_SECRET_MODE is invalid.
         AsteriskServiceError: If the new MAC address is already
             registered, or if creating the new ``.cnf.xml`` or updating
             the config files fails. On failure, sip.conf and
@@ -538,8 +694,12 @@ def replace_phone(search_method: str, search_key: str) -> None:
         f"{SEP_PREFIX}{new_mac_address}{XML_CONFIG_EXTENSION}"
     )
     created_files: list[Path] = [new_cnf_file]
+    # Random by default; SEP<new MAC> in legacy mode.
+    secret = _sip_secret_for(new_mac_address)
     try:
-        _generate_cnf_xml(extension=extension, mac_address=new_mac_address)
+        _generate_cnf_xml(
+            extension=extension, mac_address=new_mac_address, secret=secret
+        )
         with ConfigTransaction((SIP_CONF, EXTENSIONS_CONF)):
             for config_file in (SIP_CONF, EXTENSIONS_CONF):
                 _replace_mac_in_file(
@@ -547,12 +707,16 @@ def replace_phone(search_method: str, search_key: str) -> None:
                     old_mac=mac_address,
                     new_mac=new_mac_address,
                 )
+            _set_sip_secret(SIP_CONF, new_mac_address, secret)
     except (OSError, AsteriskCliError) as err:
         _cleanup_created_files(created_files)
         msg = f"File system error while replacing MAC address: {err}"
         log.error(msg)
         raise AsteriskServiceError(msg) from err
-    log.info("Updated sip.conf and extensions.conf with new MAC address.")
+    log.info(
+        "Updated sip.conf and extensions.conf with the new MAC address "
+        "and a new SIP secret."
+    )
 
     # 6. Remove the old phone's .cnf.xml. The replacement already works, so
     # a failure here is only a leftover file, not an error.
