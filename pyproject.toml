@@ -9,6 +9,7 @@ dependencies = [
   "nicegui>=3.16.0",
   "pexpect>=4.9.0",
   "pydantic>=2.13.4",
+  "pydantic-settings>=2.16.0",
   "python-dotenv>=1.2.4",
   "questionary>=2.1.1",
   "rich>=15.0.0",

@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
-from asterisk_phone_management import main as main_module
 from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.main import (
     _parse_args,
     ensure_required_paths,
@@ -34,26 +34,53 @@ def test_ensure_required_paths_success(mocker: MockerFixture) -> None:
 
 
 def test_ensure_required_paths_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    missing_file = tmp_path / "nonexistent.conf"
-    monkeypatch.setattr(main_module, "REQUIRED_FILES", (missing_file,))
+    """Missing configured files are reported together."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ASTERISK_CLI_ETC", str(tmp_path / "etc"))
+    monkeypatch.setenv(
+        "ASTERISK_CLI_TFTPBOOT",
+        str(tmp_path / "tftp"),
+    )
+    get_settings.cache_clear()
 
-    with pytest.raises(FileNotFoundError, match="Missing 1 required file"):
-        ensure_required_paths()
+    try:
+        with pytest.raises(
+            FileNotFoundError,
+            match="Missing 4 required file",
+        ):
+            ensure_required_paths()
+    finally:
+        get_settings.cache_clear()
 
 
 def test_main_missing_files_exits(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
 ) -> None:
-    missing_file = tmp_path / "nonexistent.conf"
-    monkeypatch.setattr(main_module, "REQUIRED_FILES", (missing_file,))
-    mocker.patch("asterisk_phone_management.main._parse_args")
+    """Missing configured files stop the CLI with exit code one."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ASTERISK_CLI_ETC", str(tmp_path / "etc"))
+    monkeypatch.setenv(
+        "ASTERISK_CLI_TFTPBOOT",
+        str(tmp_path / "tftp"),
+    )
+    get_settings.cache_clear()
+    mocker.patch(
+        "asterisk_phone_management.main._parse_args",
+        return_value=mocker.MagicMock(verbose=False),
+    )
 
-    with pytest.raises(SystemExit) as exc_info:
-        main()
+    try:
+        with pytest.raises(SystemExit) as exc_info:
+            main()
 
-    assert exc_info.value.code == 1
+        assert exc_info.value.code == 1
+    finally:
+        get_settings.cache_clear()
 
 
 @pytest.mark.usefixtures("mock_asterisk_env")
