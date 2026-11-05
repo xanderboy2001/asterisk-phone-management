@@ -9,7 +9,10 @@ from types import TracebackType
 from typing import Self
 
 from asterisk_phone_management.core.constants import LOCK_FILE, log
-from asterisk_phone_management.core.exceptions import FileTransactionError
+from asterisk_phone_management.core.exceptions import (
+    AsteriskCliError,
+    FileTransactionError,
+)
 from asterisk_phone_management.helpers import (
     atomic_write_bytes,
     backup_config_file,
@@ -102,7 +105,7 @@ class ConfigTransaction:
         for file_path in self.target_files:
             try:
                 self.backups[file_path] = backup_config_file(file_path)
-            except (OSError, Exception) as e:
+            except (OSError, AsteriskCliError) as e:
                 log.error("Failed to backup %s: %s", file_path, e)
                 self._rollback()
                 msg = f"Backup failed for {file_path}"
