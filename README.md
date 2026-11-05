@@ -25,8 +25,8 @@ It edits the standard Asterisk configuration files (`sip.conf`, `extensions.conf
 
 ## Requirements
 
-- Python 3.11 or later
-- [uv](https://docs.astral.sh/uv/)
+- Python 3.11 or later on the server
+- [uv](https://docs.astral.sh/uv/) on the development machine only; the server installs with `pip`
 - Asterisk using `chan_sip` (`sip.conf`), with the `asterisk` CLI available on the host
 - Cisco SIP phones provisioned over TFTP with `SEP<MAC>.cnf.xml` files
 - A provisioning template named `SEP0000000.cnf.xml` in the TFTP directory, containing the placeholders `--EXTENNUMBER--`, `--SEPMAC--`, and `--SIPSECRET--` (in the line's `<authPassword>` element)
@@ -35,10 +35,38 @@ It edits the standard Asterisk configuration files (`sip.conf`, `extensions.conf
 
 ## Installation
 
+Each [release](https://github.com/xanderboy2001/asterisk-phone-management/releases) includes a wheel, a `requirements-prod.txt` with pinned, hashed dependencies, and a `SHA256SUMS` file. The server needs Python 3.11 or later; it doesn't need uv.
+
+Download the release files to the server, check them, and install into a virtual environment:
+
+```bash
+sha256sum --check --ignore-missing SHA256SUMS
+python3 -m venv /opt/asterisk-phone-management/venv
+/opt/asterisk-phone-management/venv/bin/pip install --require-hashes -r requirements-prod.txt
+/opt/asterisk-phone-management/venv/bin/pip install --no-deps asterisk_phone_management-*.whl
+```
+
+Replace `python3` with the interpreter you installed if the system one is older than 3.11, for example `/opt/python3.15/bin/python3.15`.
+
+Run the CLI and web UI from the virtual environment:
+
+```bash
+/opt/asterisk-phone-management/venv/bin/menu
+/opt/asterisk-phone-management/venv/bin/uvicorn asterisk_phone_management.api.app:app --host <server-internal-ip> --port 8000
+```
+
+To upgrade, download the new release and repeat the two `pip install` commands.
+
+### From source
+
+For development, or to build the release files yourself:
+
 ```bash
 git clone https://github.com/xanderboy2001/asterisk-phone-management.git
 cd asterisk-phone-management
-uv sync --no-dev
+uv sync
+uv build --wheel
+uv export --no-dev --no-emit-project -o requirements-prod.txt
 ```
 
 ## Configuration
@@ -129,6 +157,8 @@ To keep the legacy format, set `ASTERISK_CLI_SIP_SECRET_MODE=mac`. New and repla
 
 Before every change, each affected config file is copied to a `backup/` folder next to it (for example, `/etc/asterisk/backup/`). If the change fails, the originals are restored automatically. Old backups aren't removed, so prune the folder periodically.
 
+The backup folder is created with mode `0700` and each backup with `0600`, because backups contain SIP secrets and voicemail PINs. An existing folder with wider permissions is tightened the next time a backup is made.
+
 ## Development
 
 ```bash
@@ -144,6 +174,18 @@ uv run pytest
 Tests run against temporary copies of the config files and never touch a real Asterisk installation.
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
+
+### Releasing
+
+1. On a `release/vX.Y.Z` branch, run `uv version --bump minor` (or `patch`/`major`), open a PR, and merge it.
+2. Tag the merge commit on `main` and push the tag, using the commands below.
+3. The **Release** workflow checks that the tag matches `pyproject.toml`, runs the checks, builds the wheel, and publishes a GitHub release with the files listed under [Installation](#installation).
+
+```bash
+git switch main && git pull
+git tag -a v0.2.0 -m "Release 0.2.0"
+git push origin v0.2.0
+```
 
 ## Security
 

@@ -33,7 +33,7 @@ repos:
     hooks:
       - id: uv-lock
       - id: uv-export
-        args: [--no-dev, --no-hashes, -o, requirements-prod.txt]
+        args: [--no-dev, --no-emit-project, -o, requirements-prod.txt]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.3
     hooks:
