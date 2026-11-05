@@ -94,7 +94,7 @@ def _secret_mode() -> SecretMode:
         "ASTERISK_CLI_SIP_SECRET_MODE must be 'random' or 'mac', "
         f"not {SIP_SECRET_MODE!r}."
     )
-    log.error(msg)
+    log.error("%s Got %r.", msg, SIP_SECRET_MODE.strip())
     raise AsteriskCliError(msg)
 
 
@@ -138,7 +138,7 @@ def _check_template() -> None:
         raise AsteriskCliError(msg) from e
     if SECRET_PLACEHOLDER not in template:
         msg = (
-            f"{XML_TEMPLATE.name} has no {SECRET_PLACEHOLDER} placeholder. "
+            f"{XML_TEMPLATE.name} has no --SIPSECRET-- placeholder. "
             "Put it in the line's <authPassword> element so phones get "
             "their SIP password."
         )
