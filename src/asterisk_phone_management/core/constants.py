@@ -48,6 +48,10 @@ LOCK_FILE: Path = Path(
     )
 )
 
+# How new phones get their SIP password: "random" (default) or "mac" for
+# the legacy SEP<MAC> scheme. Overridable via ASTERISK_CLI_SIP_SECRET_MODE.
+SIP_SECRET_MODE: str = os.environ.get("ASTERISK_CLI_SIP_SECRET_MODE", "random")
+
 # Required files + paths
 
 SIP_CONF: Path = ETC_ASTERISK / "sip.conf"

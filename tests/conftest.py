@@ -76,7 +76,8 @@ def mock_asterisk_env(
         encoding="utf-8",
     )
     xml_template.write_text(
-        "<device><name>--SEPMAC--</name><featureLabel>--EXTENNUMBER--</featureLabel></device>\n",
+        "<device><name>--SEPMAC--</name><featureLabel>--EXTENNUMBER--</featureLabel>"
+        "<authPassword>--SIPSECRET--</authPassword></device>\n",
         encoding="utf-8",
     )
 
