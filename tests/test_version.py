@@ -1,4 +1,4 @@
-"""Tests for the singe source of the package version (F-23)."""
+"""Tests for the single source of the package version (F-23)."""
 
 from importlib.metadata import version
 

@@ -60,7 +60,7 @@ def validate_caller_id(caller_id: str) -> bool | str:
 
 
 def validate_vm_field(value: str) -> bool | str:
-    """Check that a value is safe to write as a voicemain.conf field.
+    """Check that a value is safe to write as a voicemail.conf field.
 
     Args:
         value: The voicemail name or email to validate.

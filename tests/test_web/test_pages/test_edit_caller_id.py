@@ -49,7 +49,7 @@ def _page_modules() -> set[ModuleType]:
 @pytest.fixture
 def fake_search(user: User, monkeypatch: pytest.MonkeyPatch) -> None:
     """Serve search results from ``MATCHES`` instead of real files."""
-    del user  # Only needed so the app (and page module) is leaded first.
+    del user  # Only needed so the app (and page module) is loaded first.
     for module in _page_modules():
         monkeypatch.setattr(
             module,
@@ -65,7 +65,7 @@ def mock_edit(user: User, monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     Returns:
         The mock that stands in for ``edit_caller_id``.
     """
-    del user  # Only needed so the app (and page module) is leaded first.
+    del user  # Only needed so the app (and page module) is loaded first.
     mock = MagicMock()
     for module in _page_modules():
         monkeypatch.setattr(module, "edit_caller_id", mock)

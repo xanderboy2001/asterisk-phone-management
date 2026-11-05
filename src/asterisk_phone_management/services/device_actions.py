@@ -39,7 +39,7 @@ class AsteriskModule:
 
     Attributes:
         command: The CLI command that reloads it, e.g. ``sip reload``.
-        name: A Human-readable name for log and UI messages.
+        name: A human-readable name for log and UI messages.
     """
 
     command: str
@@ -352,7 +352,7 @@ def get_active_calls() -> list[ActiveCall]:
         )
     except (subprocess.CalledProcessError, OSError, AsteriskCliError):
         # The dashboard keeps polling; it shows "no calls" until Asterisk
-        # is unreachable again.
+        # is reachable again.
         return []
 
     calls: list[ActiveCall] = []
