@@ -10,7 +10,10 @@ import pytest
 from pytest_mock import MockerFixture
 
 from asterisk_phone_management.core import transactions
-from asterisk_phone_management.core.exceptions import FileTransactionError
+from asterisk_phone_management.core.exceptions import (
+    AsteriskCliError,
+    FileTransactionError,
+)
 from asterisk_phone_management.core.transactions import ConfigTransaction
 
 
@@ -307,3 +310,40 @@ def test_rollback_is_byte_exact(
         _corrupt_then_fail(sip_conf)
 
     assert sip_conf.read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    "error", [OSError("disk full"), AsteriskCliError("permission denied")]
+)
+def test_backup_failure_is_reported_as_transaction_error(
+    mock_asterisk_env: dict[str, Path],
+    mocker: MockerFixture,
+    error: Exception,
+) -> None:
+    """Expected backup failures become FileTransactionError."""
+    mocker.patch.object(transactions, "backup_config_file", side_effect=error)
+
+    with (
+        pytest.raises(FileTransactionError, match="Backup failed"),
+        ConfigTransaction((mock_asterisk_env["sip_conf"],), lock_timeout=0),
+    ):
+        pass
+
+
+def test_unexpected_backup_error_is_not_disguised(
+    mock_asterisk_env: dict[str, Path], mocker: MockerFixture
+) -> None:
+    """A bug during backup surfaces as itself, and the lock is released."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    mocker.patch.object(
+        transactions, "backup_config_file", side_effect=RuntimeError("bug")
+    )
+
+    with (
+        pytest.raises(RuntimeError, match="bug"),
+        ConfigTransaction((sip_conf,), lock_timeout=0),
+    ):
+        pass
+
+    mocker.stopall()
+    _assert_lock_free(sip_conf)

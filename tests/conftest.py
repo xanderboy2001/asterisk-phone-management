@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from asterisk_phone_management import edit_files, helpers
+from asterisk_phone_management import edit_files
 from asterisk_phone_management.core import constants, transactions
 from asterisk_phone_management.schemas.models import (
     ActiveCall,
@@ -118,7 +118,6 @@ def mock_asterisk_env(
             "EXTENSIONS_CONF": ext_conf,
             "VOICEMAIL_CONF": vm_conf,
         },
-        helpers: {"TFTPBOOT": tftp_dir},
         transactions: {"LOCK_FILE": lock_file},
     }
     for module, attrs in patches.items():

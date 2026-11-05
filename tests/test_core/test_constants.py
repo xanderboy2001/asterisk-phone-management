@@ -1,4 +1,4 @@
-"""Unit tests for the clal forwarding roseter loader."""
+"""Unit tests for the call forwarding roster loader."""
 
 from pathlib import Path
 
@@ -37,3 +37,15 @@ def test_load_call_forwarding_users_no_users_key(tmp_path: Path) -> None:
     roster = tmp_path / "call_forwarding.toml"
     roster.write_text("", encoding="utf-8")
     assert load_call_forwarding_users(roster) == []
+
+
+EXAMPLE_ROSTER = (
+    Path(__file__).resolve().parents[2] / "call_forwarding.example.toml"
+)
+
+
+def test_example_roster_loads_users() -> None:
+    """The shipped example is a working roser once copied into place."""
+    users = load_call_forwarding_users(EXAMPLE_ROSTER)
+    assert users, "call_forwarding.example.toml loads no users"
+    assert all(u.name and u.extension and u.forwarding_number for u in users)

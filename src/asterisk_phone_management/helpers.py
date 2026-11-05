@@ -15,7 +15,6 @@ from asterisk_phone_management.core.constants import (
     EXTENSIONS_CONF_NAME,
     SEP_PREFIX,
     SIP_CONF_NAME,
-    TFTPBOOT,
     CallForwardingDefinition,
     log,
 )
@@ -100,7 +99,7 @@ def copy_file_safe(src: Path, dst: Path) -> None:
     except FileNotFoundError as e:
         msg = (
             f"Source file ({src}) does not exist or "
-            f"target directory ({TFTPBOOT}) is missing."
+            f"target directory ({dst.parent}) is missing."
         )
         log.error(msg)
         raise AsteriskCliError(msg) from e

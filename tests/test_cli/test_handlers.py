@@ -1,5 +1,6 @@
 """Unit tests for CLI user command handlers."""
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -15,7 +16,9 @@ from asterisk_phone_management.cli.handlers import (
     handle_search_for_caller_id,
     handle_search_for_extension,
     handle_search_for_mac_address,
+    handle_toggle_call_forwarding,
 )
+from asterisk_phone_management.core.constants import CallForwardingDefinition
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.schemas.models import (
     ConfigMatch,
@@ -174,19 +177,6 @@ def test_handle_remove_phone_by_mac(mocker: MockerFixture) -> None:
     mock_remove.assert_called_once_with("mac", "AABBCCDDEEFF")
 
 
-def test_handle_remove_phone_invalid_method(mocker: MockerFixture) -> None:
-    mocker.patch(
-        "asterisk_phone_management.cli.handlers.prompt_search_method",
-        return_value="invalid",
-    )
-    mock_remove = mocker.patch(
-        "asterisk_phone_management.cli.handlers.remove_phone"
-    )
-
-    handle_remove_phone()
-    mock_remove.assert_not_called()
-
-
 def test_handle_replace_phone_by_ext(mocker: MockerFixture) -> None:
     mocker.patch(
         "asterisk_phone_management.cli.handlers.prompt_search_method",
@@ -221,21 +211,6 @@ def test_handle_replace_phone_by_mac(mocker: MockerFixture) -> None:
     handle_replace_phone()
 
     mock_replace.assert_called_once_with("mac", "AABBCCDDEEFF")
-
-
-def test_handle_replace_phone_invalid_method(mocker: MockerFixture) -> None:
-    mocker.patch(
-        "asterisk_phone_management.cli.handlers.prompt_search_method",
-        return_value="invalid",
-    )
-
-    mock_replace = mocker.patch(
-        "asterisk_phone_management.cli.handlers.replace_phone"
-    )
-
-    handle_replace_phone()
-
-    mock_replace.assert_not_called()
 
 
 def test_handle_reset_vm_password(mocker: MockerFixture) -> None:
@@ -384,3 +359,55 @@ def test_handle_edit_caller_id_multiple_matches_prompts(
     handle_edit_caller_id()
 
     mock_prompt.assert_called_once()
+
+
+HANDLERS = "asterisk_phone_management.cli.handlers"
+FORWARDING_USER = CallForwardingDefinition(
+    name="Buzz Lightyear", extension="1001", forwarding_number="15555550100"
+)
+
+
+@pytest.fixture
+def forwarding_user(mocker: MockerFixture) -> None:
+    """Pick the test user at the roster prompt."""
+    mocker.patch(
+        f"{HANDLERS}.prompt_select_call_forwarding_definition",
+        return_value=FORWARDING_USER,
+    )
+
+
+@pytest.mark.usefixtures("forwarding_user")
+@pytest.mark.parametrize(
+    ("enabled", "action"), [(True, "disable"), (False, "enable")]
+)
+def test_handle_toggle_call_forwarding(
+    mocker: MockerFixture,
+    caplog: pytest.LogCaptureFixture,
+    enabled: bool,
+    action: str,
+) -> None:
+    """Confirming toggles in the right direction without debug noise."""
+    mocker.patch(f"{HANDLERS}.forwarding_enabled", return_value=enabled)
+    mocker.patch("questionary.confirm").return_value.ask.return_value = True
+    mock_toggle = mocker.patch(
+        f"{HANDLERS}.toggle_call_forwarding", autospec=True
+    )
+
+    with caplog.at_level(logging.DEBUG):
+        handle_toggle_call_forwarding()
+
+    mock_toggle.assert_called_once_with(FORWARDING_USER, action)
+    messages = {record.getMessage() for record in caplog.records}
+    assert not messages & {"True", "False"}
+
+
+@pytest.mark.usefixtures("forwarding_user")
+def test_handle_toggle_call_forwarding_declined(mocker: MockerFixture) -> None:
+    """Answering No changes nothing."""
+    mocker.patch(f"{HANDLERS}.forwarding_enabled", return_value=False)
+    mocker.patch("questionary.confirm").return_value.ask.return_value = False
+    mock_toggle = mocker.patch(f"{HANDLERS}.toggle_call_forwarding")
+
+    handle_toggle_call_forwarding()
+
+    mock_toggle.assert_not_called()

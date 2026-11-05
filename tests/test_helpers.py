@@ -10,7 +10,9 @@ import pytest
 from pytest_mock import MockerFixture
 
 from asterisk_phone_management import helpers
-from asterisk_phone_management.core.constants import CallForwardingDefinition
+from asterisk_phone_management.core.constants import (
+    CallForwardingDefinition,
+)
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.helpers import (
     atomic_write_bytes,
@@ -85,14 +87,28 @@ def test_copy_file_safe_success(tmp_path: Path) -> None:
     assert dst.read_text(encoding="utf-8") == "test content"
 
 
-def test_copy_file_safe_file_not_found(tmp_path: Path) -> None:
+def test_copy_file_safe_missing_source(tmp_path: Path) -> None:
+    """A missing source is named; the TFTP directory isn't blamed."""
     src = tmp_path / "missing.txt"
-    dst = tmp_path / "dst.txt"
 
-    with pytest.raises(
-        AsteriskCliError, match=r"Source file .* does not exist"
-    ):
+    with pytest.raises(AsteriskCliError) as excinfo:
+        copy_file_safe(src, tmp_path / "dst.txt")
+
+    message = str(excinfo.value)
+    assert str(src) in message
+    assert "tftp" not in message.lower()
+
+
+def test_copy_file_safe_missing_destination_directory(tmp_path: Path) -> None:
+    src = tmp_path / "src.txt"
+    src.write_text("data", encoding="utf-8")
+    dst = tmp_path / "no-such-dir" / "dst.txt"
+
+    with pytest.raises(AsteriskCliError) as excinfo:
         copy_file_safe(src, dst)
+
+    message = str(excinfo.value)
+    assert str(dst.parent) in message
 
 
 def test_copy_file_safe_same_file(tmp_path: Path) -> None:

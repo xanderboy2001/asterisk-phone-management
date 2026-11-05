@@ -5,6 +5,7 @@ from asterisk_phone_management.web.pages import (
     home,
     reboot_phone,
     search,
+    toggle_call_forwarding,
     voicemail_reset,
 )
 
@@ -13,5 +14,6 @@ __all__: list[str] = [
     "home",
     "reboot_phone",
     "search",
+    "toggle_call_forwarding",
     "voicemail_reset",
 ]

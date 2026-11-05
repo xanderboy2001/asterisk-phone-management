@@ -52,7 +52,7 @@ def voicemail_line_re(extension: str) -> re.Pattern[str]:
     return re.compile(rf"^\s*{re.escape(extension)}\s*=")
 
 
-"""Type alias for callable rules to match lines during config file scanning."""
+# Type alias for callable rules to match lines during config file scanning.
 MatchRule = Callable[[str, str], bool]
 
 
@@ -364,8 +364,12 @@ def search_for_caller_id(caller_id: str) -> list[ConfigMatch]:
         caller_id: The caller ID to search for.
 
     Returns:
-        List of ConfigMatch dataclasses representing matches found.
+        List of ConfigMatch dataclasses representing matches found or an
+        empty list if SIP_CONF does not exist.
     """
+    if not SIP_CONF.exists():
+        return []
+
     all_matches: list[ConfigMatch] = []
 
     with SIP_CONF.open(mode="r", encoding="utf-8") as file:
@@ -375,7 +379,7 @@ def search_for_caller_id(caller_id: str) -> list[ConfigMatch]:
                     ConfigMatch(
                         file_path=SIP_CONF,
                         line_number=line_number,
-                        matched_text=line_text,
+                        matched_text=line_text.strip(),
                     )
                 )
     return _log_and_collect_matches(all_matches)

@@ -283,3 +283,27 @@ def test_search_for_extension_ignores_longer_extensions(
     )
     results = search_for_extension("1001")
     assert not any("10012" in m.matched_text for m in results)
+
+
+def test_search_for_caller_id_strips_matched_text(
+    mock_asterisk_env: dict[str, Path],
+) -> None:
+    """Matched lines are stripped, line every other search."""
+    sip_conf = mock_asterisk_env["sip_conf"]
+    sip_conf.write_text(
+        sip_conf.read_text(encoding="utf-8") + 'callerid="Alice" <1002>   \n',
+        encoding="utf-8",
+    )
+
+    results = search_for_caller_id("Alice")
+
+    assert [m.matched_text for m in results] == ['callerid="Alice" <1002>']
+
+
+def test_search_for_caller_id_missing_sip_conf(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A missing sip.conf means no matches, not a crash."""
+    monkeypatch.setattr(search_module, "SIP_CONF", tmp_path / "missing.conf")
+
+    assert search_for_caller_id("Alice") == []

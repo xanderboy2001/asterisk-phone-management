@@ -52,7 +52,7 @@ _CARDS: tuple[CardConfig, ...] = (
 def _create_card(
     icon: str, card_label: str, page: str, button_label: str = "Open"
 ) -> None:
-    """Renders an action card with an icon, label, an navigation button.
+    """Renders an action card with an icon, label, and navigation button.
 
     Args:
         icon: Name of the Quasar icon to render.
