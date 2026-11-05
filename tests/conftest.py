@@ -7,6 +7,7 @@ import pytest
 
 from asterisk_phone_management import edit_files
 from asterisk_phone_management.core import constants, transactions
+from asterisk_phone_management.core.settings import Settings
 from asterisk_phone_management.schemas.models import (
     ActiveCall,
     ConfigMatch,
@@ -111,8 +112,6 @@ def mock_asterisk_env(
             "TFTPBOOT": tftp_dir,
             "XML_TEMPLATE": xml_template,
         },
-        voicemail: {"VOICEMAIL_CONF": vm_conf},
-        caller_id: {"SIP_CONF": sip_conf},
         edit_files: {
             "SIP_CONF": sip_conf,
             "EXTENSIONS_CONF": ext_conf,
@@ -123,6 +122,17 @@ def mock_asterisk_env(
     for module, attrs in patches.items():
         for name, value in attrs.items():
             monkeypatch.setattr(module, name, value)
+
+    # Migrated consumers use the settings object. Keep legacy patches above
+    # until the remaining consumers have been migrated too.
+    settings = Settings(
+        _env_file=None,
+        etc_asterisk=etc_dir,
+        tftpboot=tftp_dir,
+        lock_file=lock_file,
+    )
+    monkeypatch.setattr(voicemail, "get_settings", lambda: settings)
+    monkeypatch.setattr(caller_id, "get_settings", lambda: settings)
 
     yield {
         "etc_dir": etc_dir,
