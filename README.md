@@ -80,6 +80,7 @@ Settings are read from environment variables. A `.env` file in the working direc
 | `ASTERISK_CLI_PHONE_SSH_USER`       | _Required for reboot_                                 | SSH username for rebooting phones                                                             |
 | `ASTERISK_CLI_PHONE_SSH_PASS`       | _Required for reboot_                                 | SSH password for rebooting phones                                                             |
 | `ASTERISK_CLI_CALL_FORWARDING_FILE` | `/etc/asterisk-phone-management/call_forwarding.toml` | Call forwarding roster                                                                        |
+| `ASTERISK_CLI_FORWARDING_GATEWAY`   | _Required for call forwarding_                        | SIP peer that forwarded calls go through, e.g. `cisco_vg`                                     |
 | `ASTERISK_CLI_ALLOWED_NETWORKS`     | _None (allow all)_                                    | Comma-separated networks allowed to use the web UI and API                                    |
 | `ASTERISK_CLI_WEB_AUTH`             | `none`                                                | `none` or `basic` (one shared login)                                                          |
 | `ASTERISK_CLI_WEB_USER`             | _Required for basic_                                  | Shared login username                                                                         |
