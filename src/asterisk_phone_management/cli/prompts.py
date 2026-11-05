@@ -213,12 +213,12 @@ def prompt_search_method() -> SearchMethod:
     search_options: list[questionary.Choice] = [
         questionary.Choice(
             title="Extension",
-            description="Find the phone to using its extension number.",
+            description="Find the phone using its extension number.",
             value=SEARCH_BY_EXTENSION,
         ),
         questionary.Choice(
             title="MAC Address",
-            description="Find the phone to using its MAC address.",
+            description="Find the phone using its MAC address.",
             value=SEARCH_BY_MAC,
         ),
     ]

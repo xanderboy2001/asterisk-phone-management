@@ -1,8 +1,10 @@
 """Call Forwarding Module to enable/disable call forwarding for users."""
 
+import re
 from typing import Literal
 
 from asterisk_phone_management.core.constants import (
+    FORWARDING_GATEWAY,
     CallForwardingDefinition,
     log,
 )
@@ -18,20 +20,39 @@ from asterisk_phone_management.helpers import (
 )
 from asterisk_phone_management.schemas.models import ConfigMatch
 
+GATEWAY_ENV: str = "ASTERISK_CLI_FORWARDING_GATEWAY"
 
-def forwarding_enabled(user: CallForwardingDefinition) -> bool:
-    """Determine whether call forwarding is currently active.
+# A SIP peer name. Nothing that could end or split a Dial() argument:
+# no commas, semicolons, parentheses, "&", "/", spaces, or line breaks.
+_GATEWAY_RE = re.compile(r"[A-Za-z0-9_.-]+")
 
-    Args:
-        user: The user whose forwarding state is being checked.
+
+def _forwarding_gateway() -> str:
+    """Return the configured forwarding gateway, after checking it.
 
     Returns:
-        True if forwarding is enabled, False if it is disabled.
-    """
-    matched_text = get_call_forwarding_config(user).matched_text
-    forwarding_string: str = f"&SIP/{user.forwarding_number}@cisco_vg"
+        The SIP peer name that forwarded calls are sent through.
 
-    return not matched_text.endswith(f";{forwarding_string}")
+    Raises:
+        AsteriskCliError: If the setting is empty or contains characters
+            that aren't safe in a dialplan line.
+    """
+    gateway = FORWARDING_GATEWAY.strip()
+    if not gateway:
+        msg = (
+            f"{GATEWAY_ENV} is not set. Set it to the SIP peer that "
+            "forwarded calls go through, for example cisco_vg."
+        )
+        log.error(msg)
+        raise AsteriskCliError(msg)
+    if _GATEWAY_RE.fullmatch(gateway) is None:
+        msg = (
+            f"{GATEWAY_ENV} may only contain letters, digits, '_', '.', "
+            f"and '-', not {gateway!r}."
+        )
+        log.error(msg)
+        raise AsteriskCliError(msg)
+    return gateway
 
 
 def _build_forwarding_string(user: CallForwardingDefinition) -> str:
@@ -41,9 +62,41 @@ def _build_forwarding_string(user: CallForwardingDefinition) -> str:
         user: The user whose forwarding number should be encoded.
 
     Returns:
-        The ``&SIP/<number>@cisco_vg`` fragment used in ``extensions.conf``.
+        The ``&SIP/<number>@<gateway>`` fragment used in ``extensions.conf``.
+
+    Raises:
+        AsteriskCliError: If the forwarding gateway setting is invalid.
     """
-    return f"&SIP/{user.forwarding_number}@cisco_vg"
+    return f"&SIP/{user.forwarding_number}@{_forwarding_gateway()}"
+
+
+def forwarding_enabled(user: CallForwardingDefinition) -> bool:
+    """Determine whether call forwarding is currently active.
+
+    Args:
+        user: The user whose forwarding state is being checked.
+
+    Returns:
+        True if forwarding is enabled, False if it is disabled.
+
+    Raises:
+        AsteriskCliError: If the user's line can't be found or the
+            gateway setting is invalid.
+        AsteriskServiceError: If the line doesn't contain this user's
+            forwarding target, usually because the gateway setting
+            doesn't match extensions.conf.
+    """
+    matched_text = get_call_forwarding_config(user).matched_text
+    forwarding_string = _build_forwarding_string(user)
+    if forwarding_string not in matched_text:
+        msg = (
+            f"The dialplan line for {user.name} doesn't contain "
+            f"{forwarding_string!r}. Check that {GATEWAY_ENV} matches "
+            "the gateway used in extensions.conf."
+        )
+        log.error(msg)
+        raise AsteriskServiceError(msg)
+    return not matched_text.endswith(f";{forwarding_string}")
 
 
 def _enable_forwarding_text(
@@ -79,7 +132,7 @@ def _enable_forwarding_text(
         first_comma_index: int = base_text.index(",", open_paren_index)
     except ValueError as e:
         msg = (
-            f"Unexpected dialplan format for {user.name}: extpected "
+            f"Unexpected dialplan format for {user.name}: expected "
             "'Dial(...,...)' in the extensions.conf line."
         )
         log.error(msg)
@@ -177,7 +230,7 @@ def toggle_call_forwarding(
         AsteriskCliError: If the user's dialplan line can't be found, or
             the file changed since it was searched.
         AsteriskServiceError: If forwarding is already in the requested
-            state, or th dialplan line isn't in the expected format.
+            state, or the dialplan line isn't in the expected format.
         FileTransactionError: If extensions.conf can't be read or written.
             The file is rolled back before this is raised.
     """

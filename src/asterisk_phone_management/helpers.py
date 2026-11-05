@@ -7,7 +7,6 @@ import tempfile
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from asterisk_phone_management.core.constants import (
     CALLERID_DIRECTIVE,
@@ -181,8 +180,8 @@ def backup_config_file(src_config: Path) -> Path:
     """
     backup_dir: Path = src_config.parent / "backup"
     # Microseconds keep two backups made in the same second from clashing.
-    timestamp: str = datetime.now(tz=ZoneInfo("America/New_York")).strftime(
-        "%Y-%m-%d_%H:%M:%S.%f"
+    timestamp: str = (
+        datetime.now().astimezone().strftime("%Y-%m-%d_%H:%M:%S.%f")
     )
     try:
         backup_dir.mkdir(mode=_BACKUP_DIR_MODE, parents=True, exist_ok=True)

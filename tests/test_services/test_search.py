@@ -288,7 +288,7 @@ def test_search_for_extension_ignores_longer_extensions(
 def test_search_for_caller_id_strips_matched_text(
     mock_asterisk_env: dict[str, Path],
 ) -> None:
-    """Matched lines are stripped, line every other search."""
+    """Matched lines are stripped, like every other search."""
     sip_conf = mock_asterisk_env["sip_conf"]
     sip_conf.write_text(
         sip_conf.read_text(encoding="utf-8") + 'callerid="Alice" <1002>   \n',

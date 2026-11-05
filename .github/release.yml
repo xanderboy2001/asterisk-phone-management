@@ -1,4 +1,4 @@
-# Groups the automatically generate release notes by PR label
+# Groups the automatically generated release notes by PR label
 changelog:
   categories:
     - title: Security

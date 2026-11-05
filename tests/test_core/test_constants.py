@@ -45,7 +45,7 @@ EXAMPLE_ROSTER = (
 
 
 def test_example_roster_loads_users() -> None:
-    """The shipped example is a working roser once copied into place."""
+    """The shipped example is a working roster once copied into place."""
     users = load_call_forwarding_users(EXAMPLE_ROSTER)
     assert users, "call_forwarding.example.toml loads no users"
     assert all(u.name and u.extension and u.forwarding_number for u in users)

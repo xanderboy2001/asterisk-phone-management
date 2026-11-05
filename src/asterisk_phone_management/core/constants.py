@@ -52,6 +52,10 @@ LOCK_FILE: Path = Path(
 # the legacy SEP<MAC> scheme. Overridable via ASTERISK_CLI_SIP_SECRET_MODE.
 SIP_SECRET_MODE: str = os.environ.get("ASTERISK_CLI_SIP_SECRET_MODE", "random")
 
+# Asterisk SIP peer that forwarded calls go out through, e.g. "cisco_vg".
+# No default: call forwarding fails with a clear error until it's set.
+FORWARDING_GATEWAY: str = os.environ.get("ASTERISK_CLI_FORWARDING_GATEWAY", "")
+
 # Required files + paths
 
 SIP_CONF: Path = ETC_ASTERISK / "sip.conf"
