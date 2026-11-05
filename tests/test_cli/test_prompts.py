@@ -305,3 +305,20 @@ def test_ask_wrong_type_raises(mocker: MockerFixture) -> None:
 def test_validate_vm_email(email: str, expected: bool) -> None:
     """Emails must be well-formed and safe for voicemail.conf."""
     assert (_validate_vm_email(email) is True) == expected
+
+
+def test_prompt_search_method_wording_fits_remove_and_replace(
+    mocker: MockerFixture,
+) -> None:
+    """Replace uses this prompt too, so it mustn't talk about deleting."""
+    mock_select = mocker.patch("questionary.select")
+    mock_select.return_value.ask.return_value = "ext"
+
+    prompt_search_method()
+
+    kwargs = mock_select.call_args.kwargs
+    texts = [
+        kwargs["message"],
+        *(choice.description or "" for choice in kwargs["choices"]),
+    ]
+    assert not any("delete" in text.lower() for text in texts)

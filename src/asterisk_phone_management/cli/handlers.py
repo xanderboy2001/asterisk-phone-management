@@ -99,9 +99,6 @@ def _resolve_search_key(search_method: str) -> str | None:
         return read_extension()
     elif search_method == SEARCH_BY_MAC:
         return read_mac_addr()
-    else:
-        log.error("Invalid search method: %s", search_method)
-        return
 
 
 def handle_remove_phone() -> None:
@@ -176,11 +173,9 @@ def handle_toggle_call_forwarding() -> None:
     action: Literal["enable", "disable"]
 
     if forwarding_enabled(user):
-        log.info("True")
         msg = "Call forwarding is enabled. Would you like to disable it?"
         action = "disable"
     else:
-        log.info("False")
         msg = "Call forwarding is disabled. Would you like to enable it?"
         action = "enable"
 
