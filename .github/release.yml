@@ -1,0 +1,13 @@
+# Groups the automatically generate release notes by PR label
+changelog:
+  categories:
+    - title: Security
+      labels: [security]
+    - title: Bug Fixes
+      labels: [bug]
+    - title: Tests
+      labels: [tests]
+    - title: Documentation
+      labels: [documentation]
+    - title: Other changes
+      labels: ["*"]

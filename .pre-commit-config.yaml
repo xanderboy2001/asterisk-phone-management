@@ -33,7 +33,7 @@ repos:
     hooks:
       - id: uv-lock
       - id: uv-export
-        args: [--no-dev, --no-hashes, -o, requirements-prod.txt]
+        args: [--no-dev, --no-emit-project, -o, requirements-prod.txt]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.3
     hooks:
@@ -44,3 +44,11 @@ repos:
     rev: v0.0.95
     hooks:
       - id: ty
+  - repo: local
+    hooks:
+      - id: check-version
+        name: version follows semver.org
+        entry: python scripts/check_version.py
+        language: python
+        files: ^pyproject\.toml$
+        pass_filenames: false

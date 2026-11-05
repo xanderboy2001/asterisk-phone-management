@@ -19,6 +19,10 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - run: uv sync --locked
+      - name: Check the version follows semver.org
+        run: |
+          git fetch --tags --force --quiet
+          uv run python scripts/check_version.py
       - name: Audit dependencies
         run: |
           uv export --locked --no-hashes --no-emit-project --format requirements.txt -o requirements-audit.txt
