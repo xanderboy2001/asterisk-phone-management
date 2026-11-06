@@ -3,18 +3,29 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
+from pytest_mock import MockerFixture
 
-from asterisk_phone_management.api.app import app
+from asterisk_phone_management.api.app import create_app
 from asterisk_phone_management.schemas.models import ConfigMatch
 
-client = TestClient(app)
+
+@pytest.fixture
+def client(mocker: MockerFixture) -> TestClient:
+    """Build the API without mounting the global NiceGUI app.
+
+    Returns:
+        An isolated API test client.
+    """
+    mocker.patch("asterisk_phone_management.api.app.mount_ui")
+    return TestClient(create_app())
 
 
 @patch("asterisk_phone_management.api.routes.search.validate_extension")
 @patch("asterisk_phone_management.api.routes.search.search_for_extension")
 def test_search_extension_success(
-    mock_search: MagicMock, mock_validate: MagicMock
+    mock_search: MagicMock, mock_validate: MagicMock, client: TestClient
 ) -> None:
     mock_validate.return_value = True
     mock_search.return_value = [
@@ -38,7 +49,7 @@ def test_search_extension_success(
 @patch("asterisk_phone_management.api.routes.search.validate_extension")
 @patch("asterisk_phone_management.api.routes.search.search_for_extension")
 def test_search_extension_validation_error(
-    mock_search: MagicMock, mock_validate: MagicMock
+    mock_search: MagicMock, mock_validate: MagicMock, client: TestClient
 ) -> None:
     mock_validate.return_value = "Invalid extension format."
     mock_search.return_value = []
@@ -52,7 +63,7 @@ def test_search_extension_validation_error(
 @patch("asterisk_phone_management.api.routes.search.validate_extension")
 @patch("asterisk_phone_management.api.routes.search.search_for_extension")
 def test_search_extension_not_found(
-    mock_search: MagicMock, mock_validate: MagicMock
+    mock_search: MagicMock, mock_validate: MagicMock, client: TestClient
 ) -> None:
     mock_validate.return_value = True
     mock_search.return_value = []
@@ -69,7 +80,7 @@ def test_search_extension_not_found(
 @patch("asterisk_phone_management.api.routes.search.validate_mac_addr")
 @patch("asterisk_phone_management.api.routes.search.search_for_mac_address")
 def test_search_mac_addr_success(
-    mock_search: MagicMock, mock_validate: MagicMock
+    mock_search: MagicMock, mock_validate: MagicMock, client: TestClient
 ) -> None:
     mock_validate.return_value = True
     mock_search.return_value = [
@@ -91,7 +102,9 @@ def test_search_mac_addr_success(
 
 
 @patch("asterisk_phone_management.api.routes.search.search_for_mac_address")
-def test_search_mac_addr_normalizes_input(mock_search: MagicMock) -> None:
+def test_search_mac_addr_normalizes_input(
+    mock_search: MagicMock, client: TestClient
+) -> None:
     """A lowercase, colon-separated MAC is searched in normalized form."""
     mock_search.return_value = [
         ConfigMatch(
@@ -108,7 +121,7 @@ def test_search_mac_addr_normalizes_input(mock_search: MagicMock) -> None:
 @patch("asterisk_phone_management.api.routes.search.validate_mac_addr")
 @patch("asterisk_phone_management.api.routes.search.search_for_mac_address")
 def test_search_mac_addr_validation_error(
-    mock_search: MagicMock, mock_validate: MagicMock
+    mock_search: MagicMock, mock_validate: MagicMock, client: TestClient
 ) -> None:
     mock_validate.return_value = "Invalid mac_addr format."
     mock_search.return_value = []
@@ -122,7 +135,7 @@ def test_search_mac_addr_validation_error(
 @patch("asterisk_phone_management.api.routes.search.validate_mac_addr")
 @patch("asterisk_phone_management.api.routes.search.search_for_mac_address")
 def test_search_mac_addr_not_found(
-    mock_search: MagicMock, mock_validate: MagicMock
+    mock_search: MagicMock, mock_validate: MagicMock, client: TestClient
 ) -> None:
     mock_validate.return_value = True
     mock_search.return_value = []
@@ -138,7 +151,7 @@ def test_search_mac_addr_not_found(
 
 @patch("asterisk_phone_management.api.routes.search.search_for_caller_id")
 def test_search_caller_id_success(
-    mock_search: MagicMock,
+    mock_search: MagicMock, client: TestClient
 ) -> None:
     mock_search.return_value = [
         ConfigMatch(
@@ -160,7 +173,7 @@ def test_search_caller_id_success(
 
 @patch("asterisk_phone_management.api.routes.search.search_for_caller_id")
 def test_search_caller_id_not_found(
-    mock_search: MagicMock,
+    mock_search: MagicMock, client: TestClient
 ) -> None:
     mock_search.return_value = []
 

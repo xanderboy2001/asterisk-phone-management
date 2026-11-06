@@ -8,7 +8,6 @@ session, so NiceGUI pages and their websocket work without extra code.
 
 import base64
 import binascii
-import os
 import secrets
 from dataclasses import dataclass
 from typing import Literal
@@ -21,6 +20,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from asterisk_phone_management.core.constants import log
 from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.core.settings import get_settings
 
 AuthMode = Literal["none", "basic"]
 
@@ -188,7 +188,7 @@ def configure_auth(
 ) -> AuthMode:
     """Enable the configured authentication mode on an app.
 
-    Each argument defaults to its environment variable when not given.
+    Each omitted argument defaults to the precached application settings.
 
     Args:
         app: The FastAPI application to protect.
@@ -200,16 +200,16 @@ def configure_auth(
         The mode that was applied.
     """
     resolved = parse_auth_mode(
-        mode if mode is not None else os.environ.get(AUTH_MODE_ENV)
+        mode if mode is not None else get_settings().web_auth
     )
     if resolved == "none":
         log.warning("Web authentication is disabled (%s=none).", AUTH_MODE_ENV)
         return resolved
     credentials = load_credentials(
-        username if username is not None else os.environ.get(AUTH_USER_ENV),
+        username if username is not None else get_settings().web_user,
         password
         if password is not None
-        else os.environ.get(AUTH_PASSWORD_ENV),
+        else get_settings().web_password.get_secret_value(),
     )
     app.add_middleware(BasicAuthMiddleware, credentials=credentials)
     log.info("Web authentication enabled (shared login).")

@@ -20,6 +20,7 @@ from asterisk_phone_management.api.network_access import (
     configure_network_access,
 )
 from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.core.settings import get_settings
 
 CREDS = BasicCredentials(username="helpdesk", password="s3cret:with:colons")
 
@@ -193,6 +194,7 @@ def test_configure_auth_none_installs_nothing(
 ) -> None:
     """With auth off, no middleware is added and a warning is logged."""
     monkeypatch.delenv("ASTERISK_CLI_WEB_AUTH", raising=False)
+    get_settings.cache_clear()
     app = FastAPI()
     assert configure_auth(app) == "none"
     assert app.user_middleware == []
@@ -206,6 +208,7 @@ def test_configure_auth_basic_from_env(
     monkeypatch.setenv("ASTERISK_CLI_WEB_AUTH", "basic")
     monkeypatch.setenv("ASTERISK_CLI_WEB_USER", "helpdesk")
     monkeypatch.setenv("ASTERISK_CLI_WEB_PASSWORD", "pw")
+    get_settings.cache_clear()
     app = FastAPI()
     assert configure_auth(app) == "basic"
     assert any(m.cls is BasicAuthMiddleware for m in app.user_middleware)
