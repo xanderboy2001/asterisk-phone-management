@@ -1,10 +1,10 @@
 """A Python module to manage the Asterisk Phone system."""
 
 import argparse
-import logging
 from pathlib import Path
 
 import questionary
+from pydantic import ValidationError
 from questionary import Choice
 
 from asterisk_phone_management.cli.handlers import (
@@ -20,12 +20,10 @@ from asterisk_phone_management.cli.handlers import (
     handle_toggle_call_forwarding,
 )
 from asterisk_phone_management.cli.views import view_active_calls
-from asterisk_phone_management.core.constants import (
-    REQUIRED_FILES,
-    console,
-    log,
-)
+from asterisk_phone_management.core.constants import console, log
 from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.core.logging import configure_logging
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.edit_files import edit_files
 from asterisk_phone_management.services.device_actions import reload_asterisk
 
@@ -136,8 +134,9 @@ def ensure_required_paths() -> None:
     Raises:
         FileNotFoundError: If any required file is missing.
     """
+    settings = get_settings()
     missing: list[Path] = [
-        path for path in REQUIRED_FILES if not path.exists()
+        path for path in settings.required_files if not path.exists()
     ]
 
     for path in missing:
@@ -146,7 +145,7 @@ def ensure_required_paths() -> None:
     if missing:
         msg = (
             f"Missing {len(missing)} required file(s): "
-            f"{', '.join(str(p) for p in missing)}"
+            f"{', '.join(str(path) for path in missing)}"
         )
         raise FileNotFoundError(msg)
 
@@ -160,13 +159,13 @@ def main() -> None:
     parsed_args = _parse_args()
     verbose: bool = bool(parsed_args.verbose)
 
+    configure_logging(verbose=verbose)
     if verbose:
-        log.setLevel(logging.DEBUG)
         log.debug("Verbose logging enabled.")
 
     try:
         ensure_required_paths()
-    except FileNotFoundError as err:
+    except (FileNotFoundError, ValidationError) as err:
         log.error(str(err))
         raise SystemExit(1) from err
 

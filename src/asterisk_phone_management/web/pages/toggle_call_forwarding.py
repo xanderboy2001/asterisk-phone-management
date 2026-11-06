@@ -5,8 +5,8 @@ from typing import Literal
 from nicegui import ui
 
 from asterisk_phone_management.core.constants import (
-    CALL_FORWARDING_USERS,
     CallForwardingDefinition,
+    load_call_forwarding_users,
 )
 from asterisk_phone_management.core.exceptions import AsteriskCliError
 from asterisk_phone_management.services.call_forwarding import (
@@ -124,7 +124,7 @@ def register_page() -> None:
             radio_select = ui.radio(
                 {
                     user: f"{user.name} ({user.extension})"
-                    for user in CALL_FORWARDING_USERS
+                    for user in load_call_forwarding_users()
                 }
             )
 

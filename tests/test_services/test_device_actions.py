@@ -12,6 +12,7 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskServiceError,
     DeviceCommunicationError,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.services import device_actions
 from asterisk_phone_management.services.device_actions import reboot_phone
 
@@ -19,8 +20,10 @@ from asterisk_phone_management.services.device_actions import reboot_phone
 @pytest.fixture
 def phone_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     """Provide fake phone SSH credentials for reboot tests."""
-    monkeypatch.setattr(device_actions, "PHONE_SSH_USER", "test-user")
-    monkeypatch.setattr(device_actions, "PHONE_SSH_PASS", "test-pass")
+    monkeypatch.setenv("ASTERISK_CLI_PHONE_SSH_USER", "test-user")
+    get_settings.cache_clear()
+    monkeypatch.setenv("ASTERISK_CLI_PHONE_SSH_PASS", "test-pass")
+    get_settings.cache_clear()
 
 
 @pytest.fixture
@@ -227,8 +230,10 @@ def test_reboot_phone_requires_credentials(
     missing: str,
 ) -> None:
     """Missing or empty credentials fail before any phone is contacted."""
-    monkeypatch.setattr(device_actions, "PHONE_SSH_USER", user)
-    monkeypatch.setattr(device_actions, "PHONE_SSH_PASS", password)
+    monkeypatch.setenv("ASTERISK_CLI_PHONE_SSH_USER", user)
+    get_settings.cache_clear()
+    monkeypatch.setenv("ASTERISK_CLI_PHONE_SSH_PASS", password)
+    get_settings.cache_clear()
     mocker.patch(
         "asterisk_phone_management.services.device_actions.search_for_extension"
     )

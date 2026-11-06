@@ -12,17 +12,11 @@ import questionary
 from asterisk_phone_management.cli.prompts import ask, read_mac_addr
 from asterisk_phone_management.cli.views import print_phone_table
 from asterisk_phone_management.core.constants import (
-    EXTENSIONS_CONF,
     MAILBOX_CONTEXT,
     SEARCH_BY_EXTENSION,
     SEARCH_BY_MAC,
     SEP_PREFIX,
-    SIP_CONF,
-    SIP_SECRET_MODE,
-    TFTPBOOT,
-    VOICEMAIL_CONF,
     XML_CONFIG_EXTENSION,
-    XML_TEMPLATE,
     log,
 )
 from asterisk_phone_management.core.exceptions import (
@@ -30,6 +24,7 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskServiceError,
     FileTransactionError,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.core.transactions import ConfigTransaction
 from asterisk_phone_management.core.validators import (
     ensure_valid,
@@ -76,28 +71,6 @@ _SECRET_LINE_RE = re.compile(
 SecretMode = Literal["random", "mac"]
 
 
-def _secret_mode() -> SecretMode:
-    """Read which SIP password scheme to use for new phones.
-
-    Returns:
-        ``"random"`` or ``"mac"``.
-
-    Raises:
-        AsteriskCliError: If ASTERISK_CLI_SIP_SECRET_MODE has any other value.
-    """
-    mode = SIP_SECRET_MODE.strip().lower()
-    if mode == "random":
-        return "random"
-    if mode == "mac":
-        return "mac"
-    msg = (
-        "ASTERISK_CLI_SIP_SECRET_MODE must be 'random' or 'mac', "
-        f"not {SIP_SECRET_MODE!r}."
-    )
-    log.error("%s Got %r.", msg, SIP_SECRET_MODE.strip())
-    raise AsteriskCliError(msg)
-
-
 def _sip_secret_for(mac_address: str) -> str:
     """Return the SIP password for a new or replaced phone.
 
@@ -110,7 +83,7 @@ def _sip_secret_for(mac_address: str) -> str:
     Raises:
         AsteriskCliError: If the secret mode setting is invalid.
     """
-    if _secret_mode() == "mac":
+    if get_settings().sip_secret_mode == "mac":
         log.warning(
             "Legacy SIP secret mode is on (ASTERISK_CLI_SIP_SECRET_MODE=mac): "
             "the new password is derived from the MAC address and is easy "
@@ -131,16 +104,16 @@ def _check_template() -> None:
             ``--SIPSECRET--`` placeholder.
     """
     try:
-        template = XML_TEMPLATE.read_text(encoding="utf-8")
+        template = get_settings().xml_template.read_text(encoding="utf-8")
     except OSError as e:
-        msg = f"Cannot read phone template {XML_TEMPLATE}: {e}"
+        msg = f"Cannot read phone template {get_settings().xml_template}: {e}"
         log.error(msg)
         raise AsteriskCliError(msg) from e
     if SECRET_PLACEHOLDER not in template:
         msg = (
-            f"{XML_TEMPLATE.name} has no --SIPSECRET-- placeholder. "
-            "Put it in the line's <authPassword> element so phones get "
-            "their SIP password."
+            f"{get_settings().xml_template.name} has no --SIPSECRET-- "
+            "placeholder. Put it in the line's <authPassword> element so "
+            "phones get their SIP password."
         )
         log.error(msg)
         raise AsteriskCliError(msg)
@@ -299,13 +272,22 @@ def _deprovision_phone(extension: str, mac_address: str) -> None:
             three config files are rolled back to their prior state
             before this is raised.
     """
-    xml_path = TFTPBOOT / f"{SEP_PREFIX}{mac_address}{XML_CONFIG_EXTENSION}"
+    xml_path = (
+        get_settings().tftpboot
+        / f"{SEP_PREFIX}{mac_address}{XML_CONFIG_EXTENSION}"
+    )
 
     try:
-        with ConfigTransaction((SIP_CONF, EXTENSIONS_CONF, VOICEMAIL_CONF)):
-            _remove_sip_section(SIP_CONF, mac_address)
-            _remove_extension_lines(EXTENSIONS_CONF, extension)
-            _remove_voicemail_entry(VOICEMAIL_CONF, extension)
+        with ConfigTransaction(
+            (
+                get_settings().sip_conf,
+                get_settings().extensions_conf,
+                get_settings().voicemail_conf,
+            )
+        ):
+            _remove_sip_section(get_settings().sip_conf, mac_address)
+            _remove_extension_lines(get_settings().extensions_conf, extension)
+            _remove_voicemail_entry(get_settings().voicemail_conf, extension)
             _remove_cnf_xml(xml_path)
     except (OSError, AsteriskCliError) as err:
         msg = f"File system error during phone deprovisioning: {err}"
@@ -348,7 +330,7 @@ def _write_provisioning_files(
         created_files: Tracking list for generated files, appended to as
             new files are created.
     """
-    cnf_path = TFTPBOOT / (
+    cnf_path = get_settings().tftpboot / (
         f"{SEP_PREFIX}{phone.mac_address}{XML_CONFIG_EXTENSION}"
     )
     secret = _sip_secret_for(phone.mac_address)
@@ -373,21 +355,21 @@ def _write_provisioning_files(
 
     sip_content += "\n"
 
-    _patch_file(SIP_CONF, sip_content)
+    _patch_file(get_settings().sip_conf, sip_content)
 
     _patch_file(
-        EXTENSIONS_CONF,
+        get_settings().extensions_conf,
         f"exten => {phone.extension}"
         f",1,Dial(SIP/{SEP_PREFIX}{phone.mac_address},14,t)\n",
     )
 
     if voicemail:
         _patch_file(
-            EXTENSIONS_CONF,
+            get_settings().extensions_conf,
             f"exten => {phone.extension},n,Voicemail({phone.extension},u)\n",
         )
         _patch_file(
-            VOICEMAIL_CONF,
+            get_settings().voicemail_conf,
             f"{phone.extension} = {phone.extension}, {voicemail.name}, "
             f"{voicemail.email},,attach=yes|delete=1\n",
         )
@@ -412,7 +394,13 @@ def _provision_phone(
     created_files: list[Path] = []
 
     try:
-        with ConfigTransaction((SIP_CONF, EXTENSIONS_CONF, VOICEMAIL_CONF)):
+        with ConfigTransaction(
+            (
+                get_settings().sip_conf,
+                get_settings().extensions_conf,
+                get_settings().voicemail_conf,
+            )
+        ):
             _write_provisioning_files(phone, voicemail, created_files)
     except (OSError, AsteriskCliError) as err:
         _cleanup_created_files(created_files)
@@ -456,13 +444,13 @@ def _generate_cnf_xml(extension: str, mac_address: str, secret: str) -> None:
         AsteriskCliError: If the template can't be read or copied, or
             (in random mode) has no ``--SIPSECRET--`` placeholder.
     """
-    if _secret_mode() == "random":
+    if get_settings().sip_secret_mode == "random":
         _check_template()
-    new_cnf_xml: Path = TFTPBOOT / (
+    new_cnf_xml: Path = get_settings().tftpboot / (
         f"{SEP_PREFIX}{mac_address}{XML_CONFIG_EXTENSION}"
     )
 
-    copy_file_safe(src=XML_TEMPLATE, dst=new_cnf_xml)
+    copy_file_safe(src=get_settings().xml_template, dst=new_cnf_xml)
 
     _patch_cnf_xml(
         file_path=new_cnf_xml,
@@ -690,7 +678,7 @@ def replace_phone(search_method: str, search_key: str) -> None:
     # 4-5. Create the new .cnf.xml, then swap the MAC in both config files.
     # The path is recorded before creating the file so a partly written
     # file is removed too.
-    new_cnf_file: Path = TFTPBOOT / (
+    new_cnf_file: Path = get_settings().tftpboot / (
         f"{SEP_PREFIX}{new_mac_address}{XML_CONFIG_EXTENSION}"
     )
     created_files: list[Path] = [new_cnf_file]
@@ -700,14 +688,19 @@ def replace_phone(search_method: str, search_key: str) -> None:
         _generate_cnf_xml(
             extension=extension, mac_address=new_mac_address, secret=secret
         )
-        with ConfigTransaction((SIP_CONF, EXTENSIONS_CONF)):
-            for config_file in (SIP_CONF, EXTENSIONS_CONF):
+        with ConfigTransaction(
+            (get_settings().sip_conf, get_settings().extensions_conf)
+        ):
+            for config_file in (
+                get_settings().sip_conf,
+                get_settings().extensions_conf,
+            ):
                 _replace_mac_in_file(
                     file_path=config_file,
                     old_mac=mac_address,
                     new_mac=new_mac_address,
                 )
-            _set_sip_secret(SIP_CONF, new_mac_address, secret)
+            _set_sip_secret(get_settings().sip_conf, new_mac_address, secret)
     except (OSError, AsteriskCliError) as err:
         _cleanup_created_files(created_files)
         msg = f"File system error while replacing MAC address: {err}"
@@ -720,7 +713,7 @@ def replace_phone(search_method: str, search_key: str) -> None:
 
     # 6. Remove the old phone's .cnf.xml. The replacement already works, so
     # a failure here is only a leftover file, not an error.
-    old_cnf_file: Path = TFTPBOOT / (
+    old_cnf_file: Path = get_settings().tftpboot / (
         f"{SEP_PREFIX}{mac_address}{XML_CONFIG_EXTENSION}"
     )
     if not old_cnf_file.exists():

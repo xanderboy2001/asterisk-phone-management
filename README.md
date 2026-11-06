@@ -52,7 +52,7 @@ Run the CLI and web UI from the virtual environment:
 
 ```bash
 /opt/asterisk-phone-management/venv/bin/menu
-/opt/asterisk-phone-management/venv/bin/uvicorn asterisk_phone_management.api.app:app --host <server-internal-ip> --port 8000
+/opt/asterisk-phone-management/venv/bin/uvicorn asterisk_phone_management.api.app:create_app --factory --host <server-internal-ip> --port 8000
 ```
 
 To upgrade, download the new release and repeat the two `pip install` commands.
@@ -71,7 +71,9 @@ uv export --no-dev --no-emit-project -o requirements-prod.txt
 
 ## Configuration
 
-Settings are read from environment variables. A `.env` file in the working directory is also loaded.
+Configuration is loaded lazily through `core.settings.get_settings()` and cached for the lifetime of the process. Environment variables override values in a `.env` file in the working directory; unrelated dotenv keys are ignored. Reading dotenv does not copy its values into the process environment. Restart the CLI or server after changing configuration. Tests can set environment variables and call `get_settings.cache_clear()` to reload configuration in one place, without patching individual service modules.
+
+Imports do not load dotenv, read the forwarding roster, configure logging, or mount the UI. The CLI configures logging in `main()`; the server configures it at application startup. The web entry point is the `create_app()` factory, not a module-level `app` object. The forwarding roster is read when its CLI prompt or web page is opened.
 
 | Variable                            | Default                                               | Purpose                                                                                       |
 | ----------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------- |

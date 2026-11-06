@@ -9,8 +9,6 @@ from dataclasses import dataclass
 import pexpect
 
 from asterisk_phone_management.core.constants import (
-    PHONE_SSH_PASS,
-    PHONE_SSH_USER,
     SEP_PREFIX,
     log,
 )
@@ -19,6 +17,7 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskServiceError,
     DeviceCommunicationError,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.core.validators import (
     ensure_valid,
     validate_extension,
@@ -121,8 +120,8 @@ def _get_phone_credentials() -> tuple[str, str]:
     Raises:
         AsteriskCliError: If either value is unset or empty.
     """
-    user = PHONE_SSH_USER
-    password = PHONE_SSH_PASS
+    user = get_settings().phone_ssh_user
+    password = get_settings().phone_ssh_pass.get_secret_value()
     missing: list[str] = []
     if not user.strip():
         missing.append("ASTERISK_CLI_PHONE_SSH_USER")

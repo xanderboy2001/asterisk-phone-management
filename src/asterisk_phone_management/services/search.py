@@ -6,14 +6,11 @@ from pathlib import Path
 
 from asterisk_phone_management.core.constants import (
     CALLERID_DIRECTIVE,
-    EXTENSIONS_CONF,
     SEP_PREFIX,
-    SIP_CONF,
-    TFTPBOOT,
-    VOICEMAIL_CONF,
     VOICEMAIL_CONF_NAME,
     log,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.core.validators import normalize_mac_addr
 from asterisk_phone_management.schemas.models import ConfigMatch
 
@@ -239,7 +236,9 @@ def scan_xml_files_for_extension(
     Yields:
         ConfigMatch: Information about each match found.
     """
-    xml_files: Iterable[Path] = TFTPBOOT.glob(pattern="*.cnf.xml")
+    xml_files: Iterable[Path] = get_settings().tftpboot.glob(
+        pattern="*.cnf.xml"
+    )
     needle: str = f"<featureLabel>{target_extension}</featureLabel>"
 
     for file in xml_files:
@@ -262,7 +261,9 @@ def scan_xml_files_for_mac_address(mac_address: str) -> Iterable[ConfigMatch]:
     Yields:
         ConfigMatch: Information about the match.
     """
-    xml_files: Iterable[Path] = TFTPBOOT.glob(pattern="*.cnf.xml")
+    xml_files: Iterable[Path] = get_settings().tftpboot.glob(
+        pattern="*.cnf.xml"
+    )
     needle: str = f"<name>{SEP_PREFIX}{mac_address}</name>".upper()
 
     for file in xml_files:
@@ -286,9 +287,9 @@ def search_for_extension(extension: str) -> list[ConfigMatch]:
         List of ConfigMatch dataclasses representing matches found.
     """
     scan_tasks: list[tuple[Path, MatchRule]] = [
-        (SIP_CONF, _is_sip_ext_match),
-        (EXTENSIONS_CONF, _is_extensions_ext_match),
-        (VOICEMAIL_CONF, _is_voicemail_ext_match),
+        (get_settings().sip_conf, _is_sip_ext_match),
+        (get_settings().extensions_conf, _is_extensions_ext_match),
+        (get_settings().voicemail_conf, _is_voicemail_ext_match),
     ]
 
     all_matches: list[ConfigMatch] = []
@@ -327,8 +328,8 @@ def search_for_mac_address(mac_address: str) -> list[ConfigMatch]:
     """
     mac_address = normalize_mac_addr(mac_address)
     scan_tasks: list[tuple[Path, MatchRule]] = [
-        (SIP_CONF, _is_sip_mac_match),
-        (EXTENSIONS_CONF, _is_extensions_mac_match),
+        (get_settings().sip_conf, _is_sip_mac_match),
+        (get_settings().extensions_conf, _is_extensions_mac_match),
     ]
 
     all_matches: list[ConfigMatch] = []
@@ -367,17 +368,17 @@ def search_for_caller_id(caller_id: str) -> list[ConfigMatch]:
         List of ConfigMatch dataclasses representing matches found or an
         empty list if SIP_CONF does not exist.
     """
-    if not SIP_CONF.exists():
+    if not get_settings().sip_conf.exists():
         return []
 
     all_matches: list[ConfigMatch] = []
 
-    with SIP_CONF.open(mode="r", encoding="utf-8") as file:
+    with get_settings().sip_conf.open(mode="r", encoding="utf-8") as file:
         for line_number, line_text in enumerate(file, start=1):
             if _is_caller_id_match(line_text, caller_id):
                 all_matches.append(
                     ConfigMatch(
-                        file_path=SIP_CONF,
+                        file_path=get_settings().sip_conf,
                         line_number=line_number,
                         matched_text=line_text.strip(),
                     )

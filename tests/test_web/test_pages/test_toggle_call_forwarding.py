@@ -1,5 +1,6 @@
 """Tests for the toggle call forwarding page."""
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,6 +11,7 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     AsteriskServiceError,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.web.pages import (
     toggle_call_forwarding as forwarding_page,
 )
@@ -17,8 +19,20 @@ from asterisk_phone_management.web.pages import (
 USER = CallForwardingDefinition(
     name="Buzz Lightyear", extension="1001", forwarding_number="15555550100"
 )
-forwarding_page.CALL_FORWARDING_USERS = [USER]
 forwarding_page.register_page()
+
+
+@pytest.fixture(autouse=True)
+def roster(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Load the page roster through the shared settings provider."""
+    path = tmp_path / "roster.toml"
+    path.write_text(
+        '[[users]]\nname = "Buzz Lightyear"\nextension = "1001"\n'
+        'forwarding_number = "15555550100"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ASTERISK_CLI_CALL_FORWARDING_FILE", str(path))
+    get_settings.cache_clear()
 
 
 async def _submit(user: User) -> None:

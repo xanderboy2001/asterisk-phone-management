@@ -2,13 +2,14 @@
 
 from asterisk_phone_management.core.constants import (
     CALLERID_DIRECTIVE,
-    SIP_CONF,
+    SIP_CONF_NAME,
     log,
 )
 from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     FileTransactionError,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.core.transactions import ConfigTransaction
 from asterisk_phone_management.core.validators import (
     ensure_valid,
@@ -27,9 +28,10 @@ def _check_target_file(match: ConfigMatch) -> None:
     Raises:
         AsteriskCliError: If the match points at any other file.
     """
-    if match.file_path.resolve() != SIP_CONF.resolve():
+    sip_conf = get_settings().sip_conf
+    if match.file_path.resolve() != sip_conf.resolve():
         msg = (
-            f"Caller IDs can only be edited in {SIP_CONF.name}, not "
+            f"Caller IDs can only be edited in {sip_conf.name}, not "
             f"{match.file_path.name} (line {match.line_number})."
         )
         log.error(msg)
@@ -64,7 +66,7 @@ def _apply_caller_id_updates(
         if not 0 <= idx < len(updated_lines):
             msg = (
                 f"Line {match.line_number} no longer exists in "
-                f"{SIP_CONF.name}. The file changed; search again."
+                f"{SIP_CONF_NAME}. The file changed; search again."
             )
             log.error(msg)
             raise AsteriskCliError(msg)
@@ -73,7 +75,7 @@ def _apply_caller_id_updates(
         expected = match.matched_text.strip()
         if current.strip() != expected:
             msg = (
-                f"Line {match.line_number} of {SIP_CONF.name} changed since "
+                f"Line {match.line_number} of {SIP_CONF_NAME} changed since "
                 f"the search (expected {expected!r}). Search again."
             )
             log.error(msg)
@@ -81,7 +83,7 @@ def _apply_caller_id_updates(
 
         if not expected.startswith(CALLERID_DIRECTIVE):
             msg = (
-                f"Line {match.line_number} of {SIP_CONF.name} is not a "
+                f"Line {match.line_number} of {SIP_CONF_NAME} is not a "
                 f"{CALLERID_DIRECTIVE} line."
             )
             log.error(msg)
@@ -116,14 +118,15 @@ def edit_caller_id(
         return
     for match in target_matches:
         _check_target_file(match)
+    sip_conf = get_settings().sip_conf
     try:
-        with ConfigTransaction((SIP_CONF,)):
-            lines = SIP_CONF.read_text(encoding="utf-8").splitlines()
+        with ConfigTransaction((sip_conf,)):
+            lines = sip_conf.read_text(encoding="utf-8").splitlines()
             updated_lines = _apply_caller_id_updates(
                 lines, target_matches, new_caller_id
             )
-            atomic_write_text(SIP_CONF, "\n".join(updated_lines) + "\n")
+            atomic_write_text(sip_conf, "\n".join(updated_lines) + "\n")
     except OSError as e:
-        msg = f"Failed to modify {SIP_CONF}: {e}"
+        msg = f"Failed to modify {sip_conf}: {e}"
         log.error(msg)
         raise FileTransactionError(msg) from e

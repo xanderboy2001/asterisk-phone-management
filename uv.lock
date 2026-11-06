@@ -243,13 +243,14 @@ wheels = [
 
 [[package]]
 name = "asterisk-phone-management"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "nicegui" },
     { name = "pexpect" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "questionary" },
     { name = "rich" },
@@ -270,6 +271,7 @@ dev = [
     { name = "ruff" },
     { name = "ty" },
     { name = "types-pexpect" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
@@ -278,6 +280,7 @@ requires-dist = [
     { name = "nicegui", specifier = ">=3.16.0" },
     { name = "pexpect", specifier = ">=4.9.0" },
     { name = "pydantic", specifier = ">=2.13.4" },
+    { name = "pydantic-settings", specifier = ">=2.16.0" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
     { name = "questionary", specifier = ">=2.1.1" },
     { name = "rich", specifier = ">=15.0.0" },
@@ -298,6 +301,7 @@ dev = [
     { name = "ruff", specifier = "==0.17.3" },
     { name = "ty", specifier = "==0.0.95" },
     { name = "types-pexpect", specifier = ">=4.9.0.20260518" },
+    { name = "uvicorn", specifier = ">=0.54.0" },
 ]
 
 [[package]]

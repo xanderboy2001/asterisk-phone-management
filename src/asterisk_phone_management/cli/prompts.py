@@ -6,12 +6,12 @@ import questionary
 from questionary import Choice
 
 from asterisk_phone_management.core.constants import (
-    CALL_FORWARDING_USERS,
     MINIMUM_VM_PASSWORD_LENGTH,
     SEARCH_BY_EXTENSION,
     SEARCH_BY_MAC,
     CallForwardingDefinition,
     SearchMethod,
+    load_call_forwarding_users,
     log,
 )
 from asterisk_phone_management.core.exceptions import AsteriskCliError
@@ -330,7 +330,8 @@ def prompt_select_call_forwarding_definition() -> CallForwardingDefinition:
     Raises:
         AsteriskCliError: If the user cancels the prompt.
     """
-    if not CALL_FORWARDING_USERS:
+    users = load_call_forwarding_users()
+    if not users:
         msg = "No call forwarding users configured."
         log.error(msg)
         raise AsteriskCliError(msg)
@@ -339,7 +340,7 @@ def prompt_select_call_forwarding_definition() -> CallForwardingDefinition:
             title=f"{user.name} ({user.extension})",
             value=user,
         )
-        for user in CALL_FORWARDING_USERS
+        for user in users
     ]
     return ask(
         questionary.select(message="Choose a user:", choices=choices),

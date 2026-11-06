@@ -1456,7 +1456,9 @@ pydantic-extra-types==2.11.1 \
 pydantic-settings==2.16.0 \
     --hash=sha256:5b6c578049ede4db0e2ef3b4eaa4ad4069cfa9211f83fb38df899dfade50a614 \
     --hash=sha256:7e73acf7f61936a15e5a3b6eedaea29f133357faf7272f2607ba479b049dd7f2
-    # via fastapi
+    # via
+    #   asterisk-phone-management
+    #   fastapi
 pygments==2.21.0 \
     --hash=sha256:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9 \
     --hash=sha256:610ca751c9bc2492b38eb9a38a7fbc93edbbb2d7182edaf34e66ae493dee5c8c

@@ -33,7 +33,7 @@ FORWARD_USER = CallForwardingDefinition(
 
 @pytest.fixture
 def forwarding_conf(
-    mock_asterisk_env: dict[str, Path], monkeypatch: pytest.MonkeyPatch
+    mock_asterisk_env: dict[str, Path],
 ) -> Path:
     """Point helpers at the test extensions.conf.
 
@@ -41,7 +41,6 @@ def forwarding_conf(
         The test extensions.conf path.
     """
     ext_conf = mock_asterisk_env["ext_conf"]
-    monkeypatch.setattr(helpers, "EXTENSIONS_CONF", ext_conf)
     return ext_conf
 
 

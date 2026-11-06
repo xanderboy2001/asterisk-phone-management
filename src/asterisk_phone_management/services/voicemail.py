@@ -3,7 +3,6 @@
 import re
 
 from asterisk_phone_management.core.constants import (
-    VOICEMAIL_CONF,
     VOICEMAIL_CONF_NAME,
     log,
 )
@@ -11,6 +10,7 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     FileTransactionError,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.core.transactions import ConfigTransaction
 from asterisk_phone_management.core.validators import (
     ensure_valid,
@@ -36,6 +36,7 @@ def reset_vm_password(extension: str, new_pin: str) -> None:
     """
     ensure_valid(validate_extension(extension))
     ensure_valid(validate_vm_password(new_pin))
+    voicemail_conf = get_settings().voicemail_conf
     extension_matches = search_for_extension(extension)
 
     voicemail_match = [
@@ -47,7 +48,7 @@ def reset_vm_password(extension: str, new_pin: str) -> None:
     if not voicemail_match:
         msg = (
             f"Voicemail box for extension {extension} "
-            f"not found in {VOICEMAIL_CONF.name}."
+            f"not found in {voicemail_conf.name}."
         )
         log.error(msg)
         raise AsteriskCliError(msg)
@@ -55,8 +56,8 @@ def reset_vm_password(extension: str, new_pin: str) -> None:
     log.info("Voicemail box for extension %s found.", extension)
 
     try:
-        with ConfigTransaction((VOICEMAIL_CONF,)):
-            content = VOICEMAIL_CONF.read_text(encoding="utf-8")
+        with ConfigTransaction((voicemail_conf,)):
+            content = voicemail_conf.read_text(encoding="utf-8")
             pattern = rf"^({re.escape(extension)}\s*=>?\s*)[^,]*"
             updated_content = re.sub(
                 pattern=pattern,
@@ -66,9 +67,9 @@ def reset_vm_password(extension: str, new_pin: str) -> None:
                 string=content,
                 flags=re.MULTILINE,
             )
-            atomic_write_text(VOICEMAIL_CONF, updated_content)
+            atomic_write_text(voicemail_conf, updated_content)
     except OSError as e:
-        msg = f"Failed to modify {VOICEMAIL_CONF}: {e}"
+        msg = f"Failed to modify {voicemail_conf}: {e}"
         log.error(msg)
         raise FileTransactionError(msg) from e
 

@@ -11,6 +11,7 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     FileTransactionError,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.edit_files import edit_files
 
 SPACED_EDITOR = "/opt/My Editor/bin/ed"
@@ -61,6 +62,7 @@ def _set_editor(monkeypatch: pytest.MonkeyPatch, value: str | None) -> None:
         monkeypatch.delenv("EDITOR", raising=False)
     else:
         monkeypatch.setenv("EDITOR", value)
+    get_settings.cache_clear()
 
 
 def _run_editor(mocker: MockerFixture) -> list[str]:

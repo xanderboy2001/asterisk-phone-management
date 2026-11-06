@@ -6,7 +6,6 @@ or not user authentication is enabled.
 """
 
 import ipaddress
-import os
 
 from fastapi import FastAPI
 from starlette.responses import PlainTextResponse
@@ -15,6 +14,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from asterisk_phone_management.core.constants import log
 from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.core.settings import get_settings
 
 Network = ipaddress.IPv4Network | ipaddress.IPv6Network
 
@@ -121,7 +121,7 @@ def configure_network_access(app: FastAPI, raw: str | None = None) -> None:
             ``ASTERISK_CLI_ALLOWED_NETWORKS`` environment variable.
     """
     if raw is None:
-        raw = os.environ.get(ALLOWED_NETWORKS_ENV, "")
+        raw = get_settings().allowed_networks
     networks = parse_networks(raw)
     if not networks:
         log.warning(

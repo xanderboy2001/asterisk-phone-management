@@ -15,6 +15,7 @@ from asterisk_phone_management.api.network_access import (
     parse_networks,
 )
 from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.core.settings import get_settings
 
 ALLOWED = (ipaddress.ip_network("10.20.0.0/24"),)
 
@@ -131,6 +132,7 @@ def test_configure_network_access_warns_when_unset(
 ) -> None:
     """With no allowlist, nothing is installed and a warning is logged."""
     monkeypatch.delenv("ASTERISK_CLI_ALLOWED_NETWORKS", raising=False)
+    get_settings.cache_clear()
     app = FastAPI()
     configure_network_access(app)
     assert app.user_middleware == []

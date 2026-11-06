@@ -4,7 +4,6 @@ import re
 from typing import Literal
 
 from asterisk_phone_management.core.constants import (
-    FORWARDING_GATEWAY,
     CallForwardingDefinition,
     log,
 )
@@ -13,6 +12,7 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskServiceError,
     FileTransactionError,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.core.transactions import ConfigTransaction
 from asterisk_phone_management.helpers import (
     atomic_write_text,
@@ -37,7 +37,7 @@ def _forwarding_gateway() -> str:
         AsteriskCliError: If the setting is empty or contains characters
             that aren't safe in a dialplan line.
     """
-    gateway = FORWARDING_GATEWAY.strip()
+    gateway = get_settings().forwarding_gateway.strip()
     if not gateway:
         msg = (
             f"{GATEWAY_ENV} is not set. Set it to the SIP peer that "
