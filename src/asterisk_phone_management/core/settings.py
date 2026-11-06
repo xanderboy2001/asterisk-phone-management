@@ -35,6 +35,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
         validate_by_name=True,
+        hide_input_in_errors=True,
     )
 
     # Base directories
@@ -54,6 +55,8 @@ class Settings(BaseSettings):
     call_forwarding_file: Path = Path(
         "/etc/asterisk-phone-management/call_forwarding.toml"
     )
+
+    editor: str = Field(default="", validation_alias="EDITOR")
 
     # Phone SSH credentials
     phone_ssh_user: str = ""
