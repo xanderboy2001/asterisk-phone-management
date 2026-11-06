@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
 from asterisk_phone_management.core.exceptions import (
@@ -12,8 +13,8 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskServiceError,
     FileTransactionError,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.schemas.models import Phone, Voicemail
-from asterisk_phone_management.services import provisioning
 from asterisk_phone_management.services.provisioning import (
     _cleanup_created_files,
     _deprovision_phone,
@@ -881,7 +882,8 @@ LEGACY_TEMPLATE = (
 @pytest.fixture
 def legacy_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     """Turn on the legacy SEP<MAC> secret mode."""
-    monkeypatch.setattr(provisioning, "SIP_SECRET_MODE", "mac")
+    monkeypatch.setenv("ASTERISK_CLI_SIP_SECRET_MODE", "mac")
+    get_settings.cache_clear()
 
 
 @pytest.mark.usefixtures("legacy_secrets")
@@ -936,8 +938,9 @@ def test_secret_mode_ignores_case_and_spaces(
     monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
     """The setting is trimmed and case-insensitive."""
-    monkeypatch.setattr(provisioning, "SIP_SECRET_MODE", mode)
-    assert provisioning._secret_mode() == mode.strip().lower()
+    monkeypatch.setenv("ASTERISK_CLI_SIP_SECRET_MODE", mode)
+    get_settings.cache_clear()
+    assert get_settings().sip_secret_mode == mode.strip().lower()
 
 
 def test_invalid_secret_mode_changes_nothing(
@@ -947,14 +950,15 @@ def test_invalid_secret_mode_changes_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A typo in the setting stops register and replace before any write."""
-    monkeypatch.setattr(provisioning, "SIP_SECRET_MODE", "macc")
+    monkeypatch.setenv("ASTERISK_CLI_SIP_SECRET_MODE", "macc")
+    get_settings.cache_clear()
     before = _snapshot(mock_asterisk_env)
 
-    with pytest.raises(AsteriskServiceError, match="'random' or 'mac'"):
+    with pytest.raises(ValidationError, match="sip_secret_mode"):
         _provision_phone(sample_phone, None)
     assert _snapshot(mock_asterisk_env) == before
 
     mocker.patch(f"{PROVISIONING}.read_mac_addr", return_value=NEW_MAC)
-    with pytest.raises(AsteriskCliError, match="'random' or 'mac'"):
+    with pytest.raises(ValidationError, match="sip_secret_mode"):
         replace_phone("ext", "1001")
     _assert_untouched(mock_asterisk_env, before)

@@ -14,6 +14,7 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     FileTransactionError,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.core.transactions import ConfigTransaction
 
 
@@ -229,9 +230,10 @@ def test_transaction_unopenable_lock_file(
     tmp_path: Path,
 ) -> None:
     """A lock file in a missing directory gives a clear error."""
-    monkeypatch.setattr(
-        transactions, "LOCK_FILE", tmp_path / "missing-dir" / "x.lock"
+    monkeypatch.setenv(
+        "ASTERISK_CLI_LOCK_FILE", str(tmp_path / "missing-dir" / "x.lock")
     )
+    get_settings.cache_clear()
     with (
         pytest.raises(FileTransactionError, match="Cannot open lock file"),
         ConfigTransaction((mock_asterisk_env["sip_conf"],), lock_timeout=0),

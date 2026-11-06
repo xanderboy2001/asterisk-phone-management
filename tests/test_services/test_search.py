@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from asterisk_phone_management.services import search as search_module
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.services.search import (
     _is_caller_id_match,
     _is_extensions_ext_match,
@@ -85,11 +85,9 @@ def test_search_for_extension_not_found() -> None:
 
 
 @pytest.mark.usefixtures("mock_asterisk_env")
-def test_search_for_extension_missing_file_skipped(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    missing_file = tmp_path / "nonexistent.conf"
-    monkeypatch.setattr(search_module, "SIP_CONF", missing_file)
+def test_search_for_extension_missing_file_skipped() -> None:
+    missing_file = get_settings().sip_conf
+    missing_file.unlink()
     results = search_for_extension("1001")
     file_names = {match.file_path.name for match in results}
     assert "sip.conf" not in file_names
@@ -157,11 +155,9 @@ def test_search_for_mac_address_not_found() -> None:
 
 
 @pytest.mark.usefixtures("mock_asterisk_env")
-def test_search_for_mac_address_missing_file_skipped(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    missing_file = tmp_path / "nonexistent.conf"
-    monkeypatch.setattr(search_module, "SIP_CONF", missing_file)
+def test_search_for_mac_address_missing_file_skipped() -> None:
+    missing_file = get_settings().sip_conf
+    missing_file.unlink()
     results = search_for_mac_address("112233445566")
     file_names = {match.file_path.name for match in results}
     assert "sip.conf" not in file_names
@@ -304,6 +300,7 @@ def test_search_for_caller_id_missing_sip_conf(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """A missing sip.conf means no matches, not a crash."""
-    monkeypatch.setattr(search_module, "SIP_CONF", tmp_path / "missing.conf")
+    monkeypatch.setenv("ASTERISK_CLI_ETC", str(tmp_path / "missing"))
+    get_settings.cache_clear()
 
     assert search_for_caller_id("Alice") == []

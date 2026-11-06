@@ -6,20 +6,20 @@ import pytest
 from pytest_mock import MockerFixture
 
 from asterisk_phone_management.core.exceptions import AsteriskCliError
-from asterisk_phone_management.core.settings import Settings
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.schemas.models import ConfigMatch
 from asterisk_phone_management.services import caller_id, voicemail
 
 
 def test_caller_id_uses_current_settings(
-    tmp_path: Path, mocker: MockerFixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Changing the settings provider changes which SIP file is accepted."""
-    provider = mocker.patch.object(caller_id, "get_settings")
+    """One shared settings override changes which SIP file is accepted."""
     previous: Path | None = None
     for directory in (tmp_path / "first", tmp_path / "second"):
-        settings = Settings.model_construct(etc_asterisk=directory)
-        provider.return_value = settings
+        monkeypatch.setenv("ASTERISK_CLI_ETC", str(directory))
+        get_settings.cache_clear()
+        settings = get_settings()
         match = ConfigMatch(
             file_path=settings.sip_conf,
             line_number=1,
@@ -39,17 +39,16 @@ def test_caller_id_uses_current_settings(
 
 
 def test_voicemail_uses_current_settings(
-    tmp_path: Path, mocker: MockerFixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
 ) -> None:
     """Each reset writes to the current configured voicemail file."""
-    provider = mocker.patch.object(voicemail, "get_settings")
     search = mocker.patch.object(voicemail, "search_for_extension")
     paths: list[Path] = []
     for directory in (tmp_path / "first", tmp_path / "second"):
         directory.mkdir()
-        settings = Settings.model_construct(etc_asterisk=directory)
-        provider.return_value = settings
-        path = settings.voicemail_conf
+        monkeypatch.setenv("ASTERISK_CLI_ETC", str(directory))
+        get_settings.cache_clear()
+        path = get_settings().voicemail_conf
         path.write_text("1001 = 1234, Test\n", encoding="utf-8")
         search.return_value = [
             ConfigMatch(
@@ -62,4 +61,3 @@ def test_voicemail_uses_current_settings(
         assert path.read_text(encoding="utf-8") == "1001 = 5678, Test\n"
         paths.append(path)
     assert paths[0].read_text(encoding="utf-8") == "1001 = 5678, Test\n"
-    assert provider.call_count == 2

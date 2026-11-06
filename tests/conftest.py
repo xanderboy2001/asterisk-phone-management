@@ -1,39 +1,48 @@
 """Shared pytest fixtures, mock environments, and test data generators."""
 
+import logging
+import os
 from collections.abc import Generator
 from pathlib import Path
 
 import pytest
 
-from asterisk_phone_management import edit_files
-from asterisk_phone_management.core import constants, transactions
-from asterisk_phone_management.core.settings import Settings
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.schemas.models import (
     ActiveCall,
     ConfigMatch,
     Phone,
     Voicemail,
 )
-from asterisk_phone_management.services import (
-    caller_id,
-    provisioning,
-    search,
-    voicemail,
-)
 
 
 @pytest.fixture(autouse=True)
-def isolated_lock_file(
+def isolated_settings(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> Path:
-    """Keep every test's config lock out of the real /etc/asterisk.
+) -> Generator[None]:
+    """Isolate environment, dotenv, settings cache, and logger state.
 
-    Returns:
-        The lock file path used for this test.
+    Yields:
+        Control to a test with no production configuration loaded.
     """
-    lock_file = tmp_path / ".asterisk-phone-management.lock"
-    monkeypatch.setattr(transactions, "LOCK_FILE", lock_file)
-    return lock_file
+    for name in tuple(os.environ):
+        if name.upper().startswith("ASTERISK_CLI_"):
+            monkeypatch.delenv(name)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ASTERISK_CLI_LOCK_FILE", str(tmp_path / "config.lock"))
+    get_settings.cache_clear()
+    logger = logging.getLogger("Asterisk Phone Management")
+    handlers = logger.handlers[:]
+    level = logger.level
+    try:
+        yield
+    finally:
+        get_settings.cache_clear()
+        for handler in logger.handlers[:]:
+            if handler not in handlers:
+                logger.removeHandler(handler)
+                handler.close()
+        logger.setLevel(level)
 
 
 @pytest.fixture
@@ -89,51 +98,11 @@ def mock_asterisk_env(
     )
 
     lock_file: Path = etc_dir / ".asterisk-phone-management.lock"
-    patches: dict[object, dict[str, object]] = {
-        constants: {
-            "ETC_ASTERISK": etc_dir,
-            "TFTPBOOT": tftp_dir,
-            "SIP_CONF": sip_conf,
-            "EXTENSIONS_CONF": ext_conf,
-            "VOICEMAIL_CONF": vm_conf,
-            "XML_TEMPLATE": xml_template,
-            "REQUIRED_FILES": (sip_conf, ext_conf, vm_conf, xml_template),
-        },
-        search: {
-            "SIP_CONF": sip_conf,
-            "EXTENSIONS_CONF": ext_conf,
-            "VOICEMAIL_CONF": vm_conf,
-            "TFTPBOOT": tftp_dir,
-        },
-        provisioning: {
-            "SIP_CONF": sip_conf,
-            "EXTENSIONS_CONF": ext_conf,
-            "VOICEMAIL_CONF": vm_conf,
-            "TFTPBOOT": tftp_dir,
-            "XML_TEMPLATE": xml_template,
-        },
-        edit_files: {
-            "SIP_CONF": sip_conf,
-            "EXTENSIONS_CONF": ext_conf,
-            "VOICEMAIL_CONF": vm_conf,
-        },
-        transactions: {"LOCK_FILE": lock_file},
-    }
-    for module, attrs in patches.items():
-        for name, value in attrs.items():
-            monkeypatch.setattr(module, name, value)
 
-    # Migrated consumers use the settings object. Keep legacy patches above
-    # until the remaining consumers have been migrated too.
-    settings = Settings(
-        _env_file=None,
-        etc_asterisk=etc_dir,
-        tftpboot=tftp_dir,
-        lock_file=lock_file,
-    )
-    monkeypatch.setattr(voicemail, "get_settings", lambda: settings)
-    monkeypatch.setattr(caller_id, "get_settings", lambda: settings)
-
+    monkeypatch.setenv("ASTERISK_CLI_ETC", str(etc_dir))
+    monkeypatch.setenv("ASTERISK_CLI_TFTPBOOT", str(tftp_dir))
+    monkeypatch.setenv("ASTERISK_CLI_LOCK_FILE", str(lock_file))
+    get_settings.cache_clear()
     yield {
         "etc_dir": etc_dir,
         "tftp_dir": tftp_dir,

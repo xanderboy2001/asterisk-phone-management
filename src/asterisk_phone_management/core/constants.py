@@ -1,73 +1,25 @@
 """Application-wide constants and shared configuration.
 
-This module centralizes constants, required file paths, and logging
-configuration used across the Asterisk phone management tool.
+Importing this module does not load configuration or configure logging.
+Runtime configuration is provided by core.settings.
 """
 
 import logging
-import os
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal
 
-from dotenv import load_dotenv
 from rich.console import Console
-from rich.logging import RichHandler
 from rich.theme import Theme
 
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.core.theme import DRACULA
-
-# Load environment variables from a .env file if present in the current
-# working directory.
-load_dotenv()
 
 MAC_ADDRESS_LENGTH: int = 12
 EXTENSION_LENGTH: int = 4
 MINIMUM_VM_PASSWORD_LENGTH: int = 4
 MAX_CALLER_ID_LENGTH: int = 80
-
-# Phone SSH credentials. No defaults: rebooting a phone fails with a clear
-# error until both variables are set.
-PHONE_SSH_USER: str = os.environ.get("ASTERISK_CLI_PHONE_SSH_USER", "")
-PHONE_SSH_PASS: str = os.environ.get("ASTERISK_CLI_PHONE_SSH_PASS", "")
-
-# Production paths by default; overridable via ASTERISK_CLI_ETC and
-# ASTERISK_CLI_TFTPBOOT in .env
-ETC_ASTERISK: Path = Path(os.environ.get("ASTERISK_CLI_ETC", "/etc/asterisk"))
-TFTPBOOT: Path = Path(
-    os.environ.get("ASTERISK_CLI_TFTPBOOT", "/var/lib/tftpboot")
-)
-
-# Held while any config file is being changed, so the CLI and web UI
-# can't edit at the same time. Overridable via ASTERISK_CLI_LOCK_FILE.
-LOCK_FILE: Path = Path(
-    os.environ.get(
-        "ASTERISK_CLI_LOCK_FILE",
-        str(ETC_ASTERISK / ".asterisk-phone-management.lock"),
-    )
-)
-
-# How new phones get their SIP password: "random" (default) or "mac" for
-# the legacy SEP<MAC> scheme. Overridable via ASTERISK_CLI_SIP_SECRET_MODE.
-SIP_SECRET_MODE: str = os.environ.get("ASTERISK_CLI_SIP_SECRET_MODE", "random")
-
-# Asterisk SIP peer that forwarded calls go out through, e.g. "cisco_vg".
-# No default: call forwarding fails with a clear error until it's set.
-FORWARDING_GATEWAY: str = os.environ.get("ASTERISK_CLI_FORWARDING_GATEWAY", "")
-
-# Required files + paths
-
-SIP_CONF: Path = ETC_ASTERISK / "sip.conf"
-EXTENSIONS_CONF: Path = ETC_ASTERISK / "extensions.conf"
-VOICEMAIL_CONF: Path = ETC_ASTERISK / "voicemail.conf"
-XML_TEMPLATE: Path = TFTPBOOT / "SEP0000000.cnf.xml"
-REQUIRED_FILES: tuple[Path, ...] = (
-    SIP_CONF,
-    EXTENSIONS_CONF,
-    VOICEMAIL_CONF,
-    XML_TEMPLATE,
-)
 
 # Config file names (basename only)
 SIP_CONF_NAME: Final[str] = "sip.conf"
@@ -120,16 +72,8 @@ class CallForwardingDefinition:
     forwarding_number: str
 
 
-CALL_FORWARDING_FILE: Path = Path(
-    os.environ.get(
-        "ASTERISK_CLI_CALL_FORWARDING_FILE",
-        "/etc/asterisk-phone-management/call_forwarding.toml",
-    )
-)
-
-
 def load_call_forwarding_users(
-    path: Path = CALL_FORWARDING_FILE,
+    path: Path | None = None,
 ) -> list[CallForwardingDefinition]:
     """Load the call forwarding roster from a TOML file.
 
@@ -139,6 +83,8 @@ def load_call_forwarding_users(
     Returns:
         The configured users, or an empty list if the file does not exist.
     """
+    if path is None:
+        path = get_settings().call_forwarding_file
     if not path.exists():
         return []
     data = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -152,20 +98,5 @@ def load_call_forwarding_users(
     ]
 
 
-CALL_FORWARDING_USERS: list[CallForwardingDefinition] = (
-    load_call_forwarding_users()
-)
-
-
-_LOG_FORMAT: str = "%(message)s"
-
 console: Console = Console(theme=RICH_THEME)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format=_LOG_FORMAT,
-    datefmt="[%X]",
-    handlers=[RichHandler(console=console, rich_tracebacks=True, markup=True)],
-)
-
 log: logging.Logger = logging.getLogger("Asterisk Phone Management")

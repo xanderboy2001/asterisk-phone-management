@@ -10,7 +10,6 @@ from pathlib import Path
 
 from asterisk_phone_management.core.constants import (
     CALLERID_DIRECTIVE,
-    EXTENSIONS_CONF,
     EXTENSIONS_CONF_NAME,
     SEP_PREFIX,
     SIP_CONF_NAME,
@@ -18,6 +17,7 @@ from asterisk_phone_management.core.constants import (
     log,
 )
 from asterisk_phone_management.core.exceptions import AsteriskCliError
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.schemas.models import ConfigMatch
 from asterisk_phone_management.services.search import search_for_extension
 
@@ -321,7 +321,7 @@ def get_call_forwarding_config(user: CallForwardingDefinition) -> ConfigMatch:
     extension_matches: list[ConfigMatch] = [
         match
         for match in search_for_extension(user.extension)
-        if match.file_path == EXTENSIONS_CONF
+        if match.file_path == get_settings().extensions_conf
         and user.forwarding_number in match.matched_text
     ]
 

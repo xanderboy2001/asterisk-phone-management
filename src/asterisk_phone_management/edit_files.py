@@ -1,6 +1,5 @@
 """Select and edit configuration files using an interactive menu."""
 
-import os
 import shlex
 import shutil
 import subprocess
@@ -10,16 +9,12 @@ import questionary
 from questionary import Choice
 
 from asterisk_phone_management.cli.prompts import ask
-from asterisk_phone_management.core.constants import (
-    EXTENSIONS_CONF,
-    SIP_CONF,
-    VOICEMAIL_CONF,
-    log,
-)
+from asterisk_phone_management.core.constants import log
 from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     FileTransactionError,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.core.transactions import ConfigTransaction
 
 # Tried in order after $EDITOR.
@@ -57,7 +52,7 @@ def get_editor() -> list[str] | None:
         The editor command split into arguments, e.g. ``["code", "--wait"]``,
         or None if no usable editor is found.
     """
-    candidates = [os.getenv("EDITOR", ""), *_FALLBACK_EDITORS]
+    candidates = [get_settings().editor, *_FALLBACK_EDITORS]
     for candidate in candidates:
         argv = _editor_argv(candidate)
         if argv is not None:
@@ -78,16 +73,16 @@ def edit_files() -> None:
     """
     file_choices: list[Choice] = [
         Choice(
-            title=SIP_CONF.name,
-            value=SIP_CONF,
+            title=get_settings().sip_conf.name,
+            value=get_settings().sip_conf,
         ),
         Choice(
-            title=EXTENSIONS_CONF.name,
-            value=EXTENSIONS_CONF,
+            title=get_settings().extensions_conf.name,
+            value=get_settings().extensions_conf,
         ),
         Choice(
-            title=VOICEMAIL_CONF.name,
-            value=VOICEMAIL_CONF,
+            title=get_settings().voicemail_conf.name,
+            value=get_settings().voicemail_conf,
         ),
     ]
 

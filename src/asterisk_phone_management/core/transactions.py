@@ -8,11 +8,12 @@ from pathlib import Path
 from types import TracebackType
 from typing import Self
 
-from asterisk_phone_management.core.constants import LOCK_FILE, log
+from asterisk_phone_management.core.constants import log
 from asterisk_phone_management.core.exceptions import (
     AsteriskCliError,
     FileTransactionError,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.helpers import (
     atomic_write_bytes,
     backup_config_file,
@@ -119,9 +120,11 @@ class ConfigTransaction:
                 lock is still held by someone else when the timeout passes.
         """
         try:
-            fd = os.open(LOCK_FILE, os.O_RDWR | os.O_CREAT, 0o600)
+            fd = os.open(
+                get_settings().lock_file, os.O_RDWR | os.O_CREAT, 0o600
+            )
         except OSError as e:
-            msg = f"Cannot open lock file {LOCK_FILE}: {e}"
+            msg = f"Cannot open lock file {get_settings().lock_file}: {e}"
             log.error(msg)
             raise FileTransactionError(msg) from e
 

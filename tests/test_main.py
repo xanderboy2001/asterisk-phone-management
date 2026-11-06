@@ -144,3 +144,23 @@ def test_main_menu_keyboard_interrupt(mocker: MockerFixture) -> None:
     mock_select.return_value.ask.side_effect = KeyboardInterrupt
     with pytest.raises(KeyboardInterrupt):
         main()
+
+
+def test_main_invalid_settings_exits_cleanly(
+    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Invalid configuration stops startup before the menu is opened."""
+    monkeypatch.setenv("ASTERISK_CLI_SIP_SECRET_MODE", "invalid")
+    get_settings.cache_clear()
+    mocker.patch(
+        "asterisk_phone_management.main._parse_args",
+        return_value=mocker.MagicMock(verbose=False),
+    )
+    menu = mocker.patch("questionary.select")
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 1
+    assert "sip_secret_mode" in caplog.text
+    menu.assert_not_called()

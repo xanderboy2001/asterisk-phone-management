@@ -11,6 +11,7 @@ from asterisk_phone_management.core.exceptions import (
     AsteriskServiceError,
     FileTransactionError,
 )
+from asterisk_phone_management.core.settings import get_settings
 from asterisk_phone_management.schemas.models import ConfigMatch
 from asterisk_phone_management.services import call_forwarding
 
@@ -30,7 +31,8 @@ def gateway(monkeypatch: pytest.MonkeyPatch) -> str:
     Returns:
         The gateway name in use.
     """
-    monkeypatch.setattr(call_forwarding, "FORWARDING_GATEWAY", GATEWAY)
+    monkeypatch.setenv("ASTERISK_CLI_FORWARDING_GATEWAY", GATEWAY)
+    get_settings.cache_clear()
     return GATEWAY
 
 
@@ -103,7 +105,8 @@ def test_custom_gateway_is_used(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The gateway comes from the setting, not a hard-coded name."""
-    monkeypatch.setattr(call_forwarding, "FORWARDING_GATEWAY", "test_gw")
+    monkeypatch.setenv("ASTERISK_CLI_FORWARDING_GATEWAY", "test_gw")
+    get_settings.cache_clear()
     forward = "&SIP/15555550100@test_gw"
     line = f"exten => 1001,1,Dial(SIP/SEP112233445566,14,t);{forward}"
     ext_conf = mock_asterisk_env["ext_conf"]
@@ -128,7 +131,8 @@ def test_unset_gateway_is_refused(
     monkeypatch: pytest.MonkeyPatch, value: str
 ) -> None:
     """Without a gateway, forwarding stops with a message naming the setting."""
-    monkeypatch.setattr(call_forwarding, "FORWARDING_GATEWAY", value)
+    monkeypatch.setenv("ASTERISK_CLI_FORWARDING_GATEWAY", value)
+    get_settings.cache_clear()
 
     with pytest.raises(
         AsteriskCliError, match="ASTERISK_CLI_FORWARDING_GATEWAY"
@@ -141,7 +145,8 @@ def test_gateway_whitespace_is_stripped(
     monkeypatch: pytest.MonkeyPatch, value: str
 ) -> None:
     """Stray whitespace from .env is removed before the value is used."""
-    monkeypatch.setattr(call_forwarding, "FORWARDING_GATEWAY", value)
+    monkeypatch.setenv("ASTERISK_CLI_FORWARDING_GATEWAY", value)
+    get_settings.cache_clear()
 
     assert (
         call_forwarding._build_forwarding_string(USER)
@@ -156,7 +161,8 @@ def test_unsafe_gateway_is_refused(
     monkeypatch: pytest.MonkeyPatch, value: str
 ) -> None:
     """Characters that could break the Dial() line are rejected."""
-    monkeypatch.setattr(call_forwarding, "FORWARDING_GATEWAY", value)
+    monkeypatch.setenv("ASTERISK_CLI_FORWARDING_GATEWAY", value)
+    get_settings.cache_clear()
 
     with pytest.raises(AsteriskCliError, match="may only contain"):
         call_forwarding._build_forwarding_string(USER)
@@ -168,7 +174,8 @@ def test_unset_gateway_changes_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A missing setting fails before extensions.conf is touched."""
-    monkeypatch.setattr(call_forwarding, "FORWARDING_GATEWAY", "")
+    monkeypatch.setenv("ASTERISK_CLI_FORWARDING_GATEWAY", "")
+    get_settings.cache_clear()
     ext_conf = mock_asterisk_env["ext_conf"]
     ext_conf.write_text(f"[default]\n{DISABLED_LINE}\n", encoding="utf-8")
     before = ext_conf.read_text(encoding="utf-8")
@@ -190,7 +197,8 @@ def test_mismatched_gateway_is_reported(
     mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A gateway that isn't in the line is an error, not 'enabled'."""
-    monkeypatch.setattr(call_forwarding, "FORWARDING_GATEWAY", "other_gw")
+    monkeypatch.setenv("ASTERISK_CLI_FORWARDING_GATEWAY", "other_gw")
+    get_settings.cache_clear()
     mocker.patch.object(
         call_forwarding,
         "get_call_forwarding_config",
