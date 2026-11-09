@@ -1103,9 +1103,9 @@ opentelemetry-sdk==1.45.1 \
     #   fastapi
     #   opentelemetry-exporter-otlp-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-semantic-conventions==0.66b1 \
-    --hash=sha256:497ca63bf383723411e8eaf60c8779e9877633c936bb641080adab59d0eb6ec8 \
-    --hash=sha256:d4cddeb4315490b35213f55e2bdc9ac54bb1e4d318927475bed62b35545e581b
+opentelemetry-semantic-conventions==0.66b2 \
+    --hash=sha256:4cbe61e5f9275d57ab31708446e7938ef4291ebbe6a7fca6f7a629c5acae87d8 \
+    --hash=sha256:7da5f1a5dc4383eb66711d4d3d3e71824d9403ac1559fea021cc103c1a4c4976
     # via opentelemetry-sdk
 orjson==3.13.0 ; platform_machine != 'i386' and platform_machine != 'i686' and platform_python_implementation != 'PyPy' \
     --hash=sha256:0526a3456db67b264c6d661b5f090077f326b6cd074d0ef53a72763595dec5d7 \
