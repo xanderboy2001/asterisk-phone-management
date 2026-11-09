@@ -32,8 +32,8 @@ dev = [
   "pytest-cov>=7.1.0",
   "pytest-mock>=3.15.1",
   "pytest-randomly>=5.0.0",
-  "ruff==0.17.3",
-  "ty==0.0.95",
+  "ruff==0.17.4",
+  "ty==0.0.98",
   "types-pexpect>=4.9.0.20260518",
   "uvicorn>=0.54.0",
 ]
